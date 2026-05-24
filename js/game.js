@@ -3,15 +3,16 @@
 // ═══════════════════════════════════════════
 
 import { db } from './firebase-config.js';
-import { ref, set, get, update, onValue, push } from
+import { ref, set, get, update, onValue } from
   'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
-import { buildDeck, shuffle, cardPoints, validatePhase, PHASES } from './cards.js';
-import { renderBoard, renderHand, showMessage, showScreen } from './ui.js';
+import { buildDeck, shuffle, cardPoints, validatePhase, canHit, firebaseToArray, PHASES } from './cards.js';
+import { renderBoard, renderHand, showMessage, showScreen, showTippyCelebration, showTippySkip } from './ui.js';
 
 // ── Local state ──
 export let localState = {
   playerId: null,
   playerName: null,
+  playerIcon: '🦁',
   roomCode: null,
   isHost: false,
   hand: [],
@@ -20,11 +21,22 @@ export let localState = {
 };
 
 // ─────────────────────────────────────────────
+//  ICON PICKER
+// ─────────────────────────────────────────────
+window.setPlayerIcon = function(icon) {
+  localState.playerIcon = icon;
+  document.querySelectorAll('.icon-option').forEach(el => {
+    el.classList.toggle('selected', el.dataset.icon === icon);
+  });
+};
+
+// ─────────────────────────────────────────────
 //  LOBBY
 // ─────────────────────────────────────────────
 window.createRoom = async function() {
   const name = document.getElementById('input-name').value.trim();
   const room = document.getElementById('input-room').value.trim().toUpperCase() || randomCode();
+  const icon = localState.playerIcon || '🦁';
   if (!name) { setLobbyError('Enter your name'); return; }
 
   localState.playerId   = 'p_' + Math.random().toString(36).slice(2,8);
@@ -40,7 +52,7 @@ window.createRoom = async function() {
     host: localState.playerId,
     status: 'waiting',
     players: {
-      [localState.playerId]: { name, phase: 1, score: 0, handCount: 0, phaseDone: false }
+      [localState.playerId]: { name, icon, phase: 1, score: 0, handCount: 0, phaseDone: false }
     },
     playerOrder: [localState.playerId],
   });
@@ -51,6 +63,7 @@ window.createRoom = async function() {
 window.joinRoom = async function() {
   const name = document.getElementById('input-name').value.trim();
   const room = document.getElementById('input-room').value.trim().toUpperCase();
+  const icon = localState.playerIcon || '🦁';
   if (!name) { setLobbyError('Enter your name'); return; }
   if (!room) { setLobbyError('Enter a room code'); return; }
 
@@ -68,7 +81,7 @@ window.joinRoom = async function() {
   localState.isHost     = false;
 
   const updates = {};
-  updates[`rooms/${room}/players/${localState.playerId}`] = { name, phase: 1, score: 0, handCount: 0, phaseDone: false };
+  updates[`rooms/${room}/players/${localState.playerId}`] = { name, icon, phase: 1, score: 0, handCount: 0, phaseDone: false };
   updates[`rooms/${room}/playerOrder`] = [...(data.playerOrder || []), localState.playerId];
   await update(ref(db), updates);
 
@@ -109,13 +122,12 @@ function handleRoomUpdate(data) {
   if (data.status === 'waiting') {
     updateWaitingUI(data);
   } else if (data.status === 'playing') {
-    if (document.getElementById('screen-game').style.display === 'none' ||
-        !document.getElementById('screen-game').classList.contains('active')) {
+    if (!document.getElementById('screen-game').classList.contains('active')) {
       showScreen('game');
     }
-    // Sync hand from Firebase
+    // Sync hand from Firebase, normalizing in case Firebase converted array → object
     const myData = data.players?.[localState.playerId];
-    if (myData?.hand) localState.hand = myData.hand;
+    if (myData?.hand) localState.hand = firebaseToArray(myData.hand);
     renderBoard(data, localState);
   } else if (data.status === 'ended') {
     showEndScreen(data);
@@ -125,11 +137,12 @@ function handleRoomUpdate(data) {
 function updateWaitingUI(data) {
   const list = document.getElementById('player-list');
   list.innerHTML = '';
-  (data.playerOrder || []).forEach(pid => {
+  firebaseToArray(data.playerOrder || []).forEach(pid => {
     const p = data.players[pid];
+    if (!p) return;
     const chip = document.createElement('div');
     chip.className = 'player-chip' + (pid === data.host ? ' host' : '');
-    chip.textContent = p.name + (pid === data.host ? ' 👑' : '');
+    chip.textContent = (p.icon || '🎮') + ' ' + p.name + (pid === data.host ? ' 👑' : '');
     list.appendChild(chip);
   });
 
@@ -153,21 +166,19 @@ function updateWaitingUI(data) {
 window.startGame = async function() {
   if (!localState.isHost) return;
   const data = localState.gameData;
-  const order = data.playerOrder;
+  const order = firebaseToArray(data.playerOrder);
   const deck = buildDeck();
 
-  // Deal 10 cards to each player
-  const playerHands = {};
   const playerUpdates = {};
   let deckPos = 0;
   for (const pid of order) {
-    playerHands[pid] = deck.slice(deckPos, deckPos + 10);
+    const hand = deck.slice(deckPos, deckPos + 10);
     deckPos += 10;
-    playerUpdates[`rooms/${localState.roomCode}/players/${pid}/hand`] = playerHands[pid];
+    playerUpdates[`rooms/${localState.roomCode}/players/${pid}/hand`]      = hand;
     playerUpdates[`rooms/${localState.roomCode}/players/${pid}/handCount`] = 10;
   }
 
-  const drawPile  = deck.slice(deckPos);
+  const drawPile   = deck.slice(deckPos);
   const topDiscard = drawPile.pop();
 
   await update(ref(db), {
@@ -176,7 +187,7 @@ window.startGame = async function() {
     [`rooms/${localState.roomCode}/drawPile`]:    drawPile,
     [`rooms/${localState.roomCode}/discardPile`]: [topDiscard],
     [`rooms/${localState.roomCode}/currentTurn`]: order[0],
-    [`rooms/${localState.roomCode}/turnPhase`]:   'draw',   // 'draw' | 'play'
+    [`rooms/${localState.roomCode}/turnPhase`]:   'draw',
     [`rooms/${localState.roomCode}/melds`]:        {},
     [`rooms/${localState.roomCode}/handNum`]:      1,
   });
@@ -193,10 +204,9 @@ window.drawCard = async function(source) {
 
   let draw, updates = {};
   if (source === 'draw') {
-    let pile = [...(data.drawPile || [])];
+    let pile = firebaseToArray(data.drawPile || []);
     if (!pile.length) {
-      // Reshuffle discard (keep top)
-      const discardPile = [...(data.discardPile || [])];
+      const discardPile = firebaseToArray(data.discardPile || []);
       const top = discardPile.pop();
       pile = shuffle(discardPile);
       updates[`rooms/${localState.roomCode}/discardPile`] = [top];
@@ -204,7 +214,7 @@ window.drawCard = async function(source) {
     draw = pile.pop();
     updates[`rooms/${localState.roomCode}/drawPile`] = pile;
   } else {
-    const discardPile = [...(data.discardPile || [])];
+    const discardPile = firebaseToArray(data.discardPile || []);
     if (!discardPile.length) { showMessage('Discard pile is empty'); return; }
     draw = discardPile.pop();
     updates[`rooms/${localState.roomCode}/discardPile`] = discardPile;
@@ -213,7 +223,7 @@ window.drawCard = async function(source) {
   const newHand = [...localState.hand, draw];
   localState.hand = newHand;
   localState.selectedCards = [];
-  updates[`rooms/${localState.roomCode}/players/${localState.playerId}/hand`] = newHand;
+  updates[`rooms/${localState.roomCode}/players/${localState.playerId}/hand`]      = newHand;
   updates[`rooms/${localState.roomCode}/players/${localState.playerId}/handCount`] = newHand.length;
   updates[`rooms/${localState.roomCode}/turnPhase`] = 'play';
 
@@ -233,9 +243,9 @@ window.layDownPhase = async function() {
   const myPlayer = data.players[localState.playerId];
   if (myPlayer.phaseDone) { showMessage('Phase already laid down!'); return; }
 
-  const phaseId   = myPlayer.phase;
-  const selected  = localState.selectedCards;
-  const phaseObj  = PHASES[phaseId - 1];
+  const phaseId  = myPlayer.phase;
+  const selected = localState.selectedCards;
+  const phaseObj = PHASES[phaseId - 1];
 
   const selectedCardObjs = selected.map(id => localState.hand.find(c => c.id === id)).filter(Boolean);
   const result = validatePhase(selectedCardObjs, phaseId);
@@ -245,74 +255,79 @@ window.layDownPhase = async function() {
     return;
   }
 
-  // Remove selected from hand
   const usedIds = new Set(selectedCardObjs.map(c => c.id));
   const newHand = localState.hand.filter(c => !usedIds.has(c.id));
   localState.hand = newHand;
   localState.selectedCards = [];
 
-  // Build meld entries
   const melds = data.melds || {};
-  const meldKey = localState.playerId;
-  melds[meldKey] = result.map((group, i) => ({
-    ownerId: localState.playerId,
+  melds[localState.playerId] = result.map((group, i) => ({
+    ownerId:   localState.playerId,
     partIndex: i,
-    partType: phaseObj.parts[i].type,
+    partType:  phaseObj.parts[i].type,
     partCount: phaseObj.parts[i].count,
-    cards: group,
+    cards:     group,
   }));
 
-  const updates = {
-    [`rooms/${localState.roomCode}/melds`]: melds,
-    [`rooms/${localState.roomCode}/players/${localState.playerId}/hand`]: newHand,
-    [`rooms/${localState.roomCode}/players/${localState.playerId}/handCount`]: newHand.length,
-    [`rooms/${localState.roomCode}/players/${localState.playerId}/phaseDone`]: true,
-  };
-  await update(ref(db), updates);
+  await update(ref(db), {
+    [`rooms/${localState.roomCode}/melds`]:                                         melds,
+    [`rooms/${localState.roomCode}/players/${localState.playerId}/hand`]:            newHand,
+    [`rooms/${localState.roomCode}/players/${localState.playerId}/handCount`]:       newHand.length,
+    [`rooms/${localState.roomCode}/players/${localState.playerId}/phaseDone`]:       true,
+  });
   renderHand(localState);
   updateActionButtons();
   showMessage(`Phase ${phaseId} laid down! ✓`);
+  showTippyCelebration(`🐾 Phase ${phaseId} down! Tippy is hyped!`);
 };
 
 // ─────────────────────────────────────────────
-//  HIT (add to meld)
+//  HIT (add to meld)  — fixed Firebase array bug
 // ─────────────────────────────────────────────
 window.hitMeld = async function(ownerId, groupIndex) {
   const data = localState.gameData;
-  if (!data || data.currentTurn !== localState.playerId) { showMessage('Not your turn!'); return; }
+  if (!data || data.status !== 'playing') return;
+  if (data.currentTurn !== localState.playerId) { showMessage('Not your turn!'); return; }
   if (data.turnPhase !== 'play') { showMessage('Draw a card first'); return; }
+
   const myPlayer = data.players[localState.playerId];
-  if (!myPlayer.phaseDone) { showMessage('Lay down your phase first'); return; }
+  if (!myPlayer || !myPlayer.phaseDone) { showMessage('Lay down your phase first'); return; }
 
   const selected = localState.selectedCards;
-  if (selected.length !== 1) { showMessage('Select exactly 1 card to hit'); return; }
+  if (selected.length !== 1) { showMessage('Select exactly 1 card from your hand first'); return; }
 
   const card = localState.hand.find(c => c.id === selected[0]);
   if (!card) return;
 
-  const melds = JSON.parse(JSON.stringify(data.melds || {}));
-  const group = melds[ownerId]?.[groupIndex];
-  if (!group) return;
+  // Deep clone melds and normalize any Firebase object-encoded arrays
+  const meldsRaw  = JSON.parse(JSON.stringify(data.melds || {}));
+  const groups    = firebaseToArray(meldsRaw[ownerId]);
+  if (!groups || !groups[groupIndex]) { showMessage('Meld not found'); return; }
 
-  // Validate hit
-  const { canHit } = await import('./cards.js');
+  const group     = groups[groupIndex];
+  group.cards     = firebaseToArray(group.cards);
+
   if (!canHit(card, group.cards, { type: group.partType })) {
     showMessage("That card doesn't fit there");
     return;
   }
 
   group.cards.push(card);
+  groups[groupIndex] = group;
+  meldsRaw[ownerId]  = groups;
+
   const newHand = localState.hand.filter(c => c.id !== card.id);
   localState.hand = newHand;
   localState.selectedCards = [];
 
   await update(ref(db), {
-    [`rooms/${localState.roomCode}/melds`]: melds,
-    [`rooms/${localState.roomCode}/players/${localState.playerId}/hand`]: newHand,
-    [`rooms/${localState.roomCode}/players/${localState.playerId}/handCount`]: newHand.length,
+    [`rooms/${localState.roomCode}/melds`]:                                        meldsRaw,
+    [`rooms/${localState.roomCode}/players/${localState.playerId}/hand`]:           newHand,
+    [`rooms/${localState.roomCode}/players/${localState.playerId}/handCount`]:      newHand.length,
   });
   renderHand(localState);
   updateActionButtons();
+  showMessage('Card added! ✓');
 };
 
 // ─────────────────────────────────────────────
@@ -329,32 +344,29 @@ window.discardSelected = async function() {
   const card = localState.hand.find(c => c.id === selected[0]);
   if (!card) return;
 
-  // Skip card — skip next player
-  const order = data.playerOrder;
+  const order = firebaseToArray(data.playerOrder);
   const myIdx = order.indexOf(localState.playerId);
   let nextIdx = (myIdx + 1) % order.length;
-  let skippedPlayer = null;
 
   if (card.type === 'skip') {
-    skippedPlayer = order[nextIdx];
     nextIdx = (nextIdx + 1) % order.length;
+    showTippySkip();
   }
 
-  const nextPlayer = order[nextIdx];
-  const newHand = localState.hand.filter(c => c.id !== card.id);
-  const discardPile = [...(data.discardPile || []), card];
+  const nextPlayer   = order[nextIdx];
+  const newHand      = localState.hand.filter(c => c.id !== card.id);
+  const discardPile  = [...firebaseToArray(data.discardPile || []), card];
   localState.hand = newHand;
   localState.selectedCards = [];
 
   const updates = {
-    [`rooms/${localState.roomCode}/players/${localState.playerId}/hand`]: newHand,
-    [`rooms/${localState.roomCode}/players/${localState.playerId}/handCount`]: newHand.length,
-    [`rooms/${localState.roomCode}/discardPile`]: discardPile,
-    [`rooms/${localState.roomCode}/currentTurn`]: nextPlayer,
-    [`rooms/${localState.roomCode}/turnPhase`]:   'draw',
+    [`rooms/${localState.roomCode}/players/${localState.playerId}/hand`]:       newHand,
+    [`rooms/${localState.roomCode}/players/${localState.playerId}/handCount`]:  newHand.length,
+    [`rooms/${localState.roomCode}/discardPile`]:                               discardPile,
+    [`rooms/${localState.roomCode}/currentTurn`]:                               nextPlayer,
+    [`rooms/${localState.roomCode}/turnPhase`]:                                 'draw',
   };
 
-  // Check if this player went out (empty hand)
   if (newHand.length === 0) {
     await handleGoOut(data, updates);
     return;
@@ -370,18 +382,16 @@ window.discardSelected = async function() {
 // ─────────────────────────────────────────────
 async function handleGoOut(data, baseUpdates) {
   const updates = { ...baseUpdates };
-  const order   = data.playerOrder;
+  const order   = firebaseToArray(data.playerOrder);
 
-  // Score remaining cards in everyone else's hands
   for (const pid of order) {
     if (pid === localState.playerId) continue;
-    const theirHand = data.players[pid].hand || [];
+    const theirHand = firebaseToArray(data.players[pid].hand || []);
     const pts = theirHand.reduce((sum, c) => sum + cardPoints(c), 0);
     const prevScore = data.players[pid].score || 0;
     updates[`rooms/${localState.roomCode}/players/${pid}/score`] = prevScore + pts;
   }
 
-  // Advance phases for players who completed
   let someoneOn10Done = false;
   for (const pid of order) {
     const p = data.players[pid];
@@ -390,24 +400,21 @@ async function handleGoOut(data, baseUpdates) {
       if (nextPhase > 10) someoneOn10Done = true;
       updates[`rooms/${localState.roomCode}/players/${pid}/phase`] = Math.min(nextPhase, 11);
     }
-    // Reset for next hand
     updates[`rooms/${localState.roomCode}/players/${pid}/phaseDone`] = false;
   }
 
-  // Check win condition
   if (someoneOn10Done) {
     updates[`rooms/${localState.roomCode}/status`] = 'ended';
     await update(ref(db), updates);
     return;
   }
 
-  // Deal new hand
   const deck = buildDeck();
   let pos = 0;
   for (const pid of order) {
     const hand = deck.slice(pos, pos + 10);
     pos += 10;
-    updates[`rooms/${localState.roomCode}/players/${pid}/hand`] = hand;
+    updates[`rooms/${localState.roomCode}/players/${pid}/hand`]      = hand;
     updates[`rooms/${localState.roomCode}/players/${pid}/handCount`] = 10;
   }
   const drawPile   = deck.slice(pos);
@@ -425,10 +432,32 @@ async function handleGoOut(data, baseUpdates) {
 // ─────────────────────────────────────────────
 //  SORT HAND
 // ─────────────────────────────────────────────
-window.sortHand = function() {
+window.sortHandByNumber = function() {
+  const typeOrder = { number: 0, wild: 1, skip: 2 };
   localState.hand.sort((a, b) => {
-    if (a.type !== b.type) return a.type.localeCompare(b.type);
-    if (a.color !== b.color) return a.color.localeCompare(b.color);
+    const ta = typeOrder[a.type] ?? 3, tb = typeOrder[b.type] ?? 3;
+    if (ta !== tb) return ta - tb;
+    return a.number - b.number;
+  });
+  renderHand(localState);
+};
+
+window.sortHandByColor = function() {
+  const colorOrder = { red: 0, blue: 1, green: 2, yellow: 3, wild: 4, skip: 5 };
+  localState.hand.sort((a, b) => {
+    const ca = colorOrder[a.color] ?? 6, cb = colorOrder[b.color] ?? 6;
+    if (ca !== cb) return ca - cb;
+    return a.number - b.number;
+  });
+  renderHand(localState);
+};
+
+window.sortHandWildsFirst = function() {
+  // Put wilds first, skips last, numbers in middle grouped by value
+  const typeOrder = { wild: 0, number: 1, skip: 2 };
+  localState.hand.sort((a, b) => {
+    const ta = typeOrder[a.type] ?? 3, tb = typeOrder[b.type] ?? 3;
+    if (ta !== tb) return ta - tb;
     return a.number - b.number;
   });
   renderHand(localState);
@@ -458,13 +487,13 @@ window.toggleSelect = function(card, el) {
 // ─────────────────────────────────────────────
 export function updateActionButtons() {
   const data = localState.gameData;
-  const isMyTurn = data?.currentTurn === localState.playerId;
+  const isMyTurn    = data?.currentTurn === localState.playerId;
   const isPlayPhase = data?.turnPhase === 'play';
-  const sel = localState.selectedCards;
+  const sel         = localState.selectedCards;
 
   document.getElementById('btn-discard').disabled = !(isMyTurn && isPlayPhase && sel.length === 1);
 
-  const myPlayer = data?.players?.[localState.playerId];
+  const myPlayer  = data?.players?.[localState.playerId];
   const phaseDone = myPlayer?.phaseDone;
   document.getElementById('btn-lay').disabled = !(isMyTurn && isPlayPhase && !phaseDone && sel.length >= 2);
 }
@@ -475,7 +504,7 @@ export function updateActionButtons() {
 function showEndScreen(data) {
   showScreen('end');
   const players = Object.entries(data.players || {})
-    .sort((a,b) => {
+    .sort((a, b) => {
       const pa = a[1], pb = b[1];
       if (pb.phase !== pa.phase) return pb.phase - pa.phase;
       return pa.score - pb.score;
@@ -483,14 +512,14 @@ function showEndScreen(data) {
 
   const winner = players[0];
   document.getElementById('end-title').textContent =
-    `${winner[1].name} Wins! 🎉`;
+    `${winner[1].icon || ''} ${winner[1].name} Wins! 🎉`;
 
   const scoresEl = document.getElementById('end-scores');
   scoresEl.innerHTML = '';
   players.forEach(([pid, p], i) => {
     const row = document.createElement('div');
     row.className = 'score-row';
-    row.innerHTML = `<span>${i+1}. ${p.name}</span><span>Phase ${Math.min(p.phase,10)} · ${p.score} pts</span>`;
+    row.innerHTML = `<span>${i+1}. ${p.icon || ''} ${p.name}</span><span>Phase ${Math.min(p.phase,10)} · ${p.score} pts</span>`;
     scoresEl.appendChild(row);
   });
 }

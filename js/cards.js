@@ -5,17 +5,28 @@
 export const COLORS = ['red', 'blue', 'green', 'yellow'];
 
 export const PHASES = [
-  { id:1,  desc: '2 Sets of 3',            parts: [{type:'set',count:3},{type:'set',count:3}] },
-  { id:2,  desc: '1 Set of 3 + 1 Run of 4',parts: [{type:'set',count:3},{type:'run',count:4}] },
-  { id:3,  desc: '1 Set of 4 + 1 Run of 4',parts: [{type:'set',count:4},{type:'run',count:4}] },
-  { id:4,  desc: '1 Run of 7',             parts: [{type:'run',count:7}] },
-  { id:5,  desc: '1 Run of 8',             parts: [{type:'run',count:8}] },
-  { id:6,  desc: '1 Run of 9',             parts: [{type:'run',count:9}] },
-  { id:7,  desc: '2 Sets of 4',            parts: [{type:'set',count:4},{type:'set',count:4}] },
-  { id:8,  desc: '7 Cards of 1 Color',     parts: [{type:'color',count:7}] },
-  { id:9,  desc: '1 Set of 5 + 1 Set of 2',parts: [{type:'set',count:5},{type:'set',count:2}] },
-  { id:10, desc: '1 Set of 5 + 1 Set of 3',parts: [{type:'set',count:5},{type:'set',count:3}] },
+  { id:1,  desc: '2 Sets of 3',             parts: [{type:'set',count:3},{type:'set',count:3}] },
+  { id:2,  desc: '1 Set of 3 + 1 Run of 4', parts: [{type:'set',count:3},{type:'run',count:4}] },
+  { id:3,  desc: '1 Set of 4 + 1 Run of 4', parts: [{type:'set',count:4},{type:'run',count:4}] },
+  { id:4,  desc: '1 Run of 7',              parts: [{type:'run',count:7}] },
+  { id:5,  desc: '1 Run of 8',              parts: [{type:'run',count:8}] },
+  { id:6,  desc: '1 Run of 9',              parts: [{type:'run',count:9}] },
+  { id:7,  desc: '2 Sets of 4',             parts: [{type:'set',count:4},{type:'set',count:4}] },
+  { id:8,  desc: '7 Cards of 1 Color',      parts: [{type:'color',count:7}] },
+  { id:9,  desc: '1 Set of 5 + 1 Set of 2', parts: [{type:'set',count:5},{type:'set',count:2}] },
+  { id:10, desc: '1 Set of 5 + 1 Set of 3', parts: [{type:'set',count:5},{type:'set',count:3}] },
 ];
+
+// ── Firebase stores arrays as objects with numeric string keys.
+//    This converts them back to real JS arrays.
+export function firebaseToArray(val) {
+  if (Array.isArray(val)) return val;
+  if (!val || typeof val !== 'object') return [];
+  return Object.keys(val)
+    .filter(k => !isNaN(k))
+    .sort((a, b) => Number(a) - Number(b))
+    .map(k => val[k]);
+}
 
 let _cardId = 0;
 function makeCard(type, color, number) {
@@ -25,7 +36,6 @@ function makeCard(type, color, number) {
 export function buildDeck() {
   _cardId = 0;
   const deck = [];
-  // 2 copies of each number (1-12) per color
   for (let copy = 0; copy < 2; copy++) {
     for (const color of COLORS) {
       for (let n = 1; n <= 12; n++) {
@@ -33,7 +43,6 @@ export function buildDeck() {
       }
     }
   }
-  // 8 Wild, 4 Skip
   for (let i = 0; i < 8; i++) deck.push(makeCard('wild', 'wild', 0));
   for (let i = 0; i < 4; i++) deck.push(makeCard('skip', 'skip', 0));
   return shuffle(deck);
@@ -48,7 +57,6 @@ export function shuffle(arr) {
   return a;
 }
 
-// ── Card point value ──
 export function cardPoints(card) {
   if (card.type === 'wild') return 25;
   if (card.type === 'skip') return 15;
@@ -56,7 +64,6 @@ export function cardPoints(card) {
   return 5;
 }
 
-// ── Render a card element ──
 export function renderCard(card, opts = {}) {
   const el = document.createElement('div');
   el.className = `card card-${card.color}`;
@@ -74,19 +81,14 @@ export function renderCard(card, opts = {}) {
   return el;
 }
 
-// ── Phase validation ──
 export function validatePhase(cards, phaseId) {
   const phase = PHASES[phaseId - 1];
-  // Try to split cards into the required groups
   return tryAssign(cards, phase.parts, []);
 }
 
 function tryAssign(cards, parts, assignment) {
   if (parts.length === 0) return assignment;
   const [part, ...rest] = parts;
-  // Get all combinations of the right size
-  const wilds = cards.filter(c => c.type === 'wild');
-  const nonWilds = cards.filter(c => c.type !== 'wild');
   const combos = combinations(cards, part.count);
   for (const combo of combos) {
     if (matchesPart(combo, part)) {
@@ -104,15 +106,14 @@ function matchesPart(cards, part) {
   if (part.type === 'set') {
     const nums = real.map(c => c.number);
     const unique = [...new Set(nums)];
-    return unique.length <= 1; // all same number (wilds fill in)
+    return unique.length <= 1;
   }
   if (part.type === 'run') {
-    if (real.length === 0) return true; // all wilds
+    if (real.length === 0) return true;
     const nums = real.map(c => c.number).sort((a,b)=>a-b);
-    // Remove duplicates only possible with wilds filling
     const span = nums[nums.length-1] - nums[0] + 1;
     const uniqueNums = [...new Set(nums)];
-    if (uniqueNums.length !== real.length) return false; // duplicates in run
+    if (uniqueNums.length !== real.length) return false;
     return span <= cards.length && uniqueNums.length + wilds.length >= cards.length;
   }
   if (part.type === 'color') {
@@ -132,7 +133,6 @@ function combinations(arr, k) {
   return [...withFirst, ...withoutFirst];
 }
 
-// ── Check if a card can be "hit" onto an existing meld group ──
 export function canHit(card, meldGroup, part) {
   if (card.type === 'wild') return true;
   if (part.type === 'set') {
