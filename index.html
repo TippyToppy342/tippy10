@@ -32,6 +32,7 @@
         <span class="icon-option" data-icon="🦊" onclick="setPlayerIcon('🦊')">🦊</span>
         <span class="icon-option" data-icon="🐺" onclick="setPlayerIcon('🐺')">🐺</span>
         <span class="icon-option" data-icon="🦝" onclick="setPlayerIcon('🦝')">🦝</span>
+        <span class="icon-option" data-icon="🦉" onclick="setPlayerIcon('🦉')">🦉</span>
         <span class="icon-option" data-icon="🐸" onclick="setPlayerIcon('🐸')">🐸</span>
         <span class="icon-option" data-icon="🦋" onclick="setPlayerIcon('🦋')">🦋</span>
         <span class="icon-option" data-icon="🐙" onclick="setPlayerIcon('🐙')">🐙</span>
@@ -39,6 +40,21 @@
         <span class="icon-option" data-icon="🦈" onclick="setPlayerIcon('🦈')">🦈</span>
         <span class="icon-option" data-icon="🦅" onclick="setPlayerIcon('🦅')">🦅</span>
         <span class="icon-option" data-icon="🐲" onclick="setPlayerIcon('🐲')">🐲</span>
+        <span class="icon-option" data-icon="🐻" onclick="setPlayerIcon('🐻')">🐻</span>
+        <span class="icon-option" data-icon="🐼" onclick="setPlayerIcon('🐼')">🐼</span>
+        <span class="icon-option" data-icon="🐧" onclick="setPlayerIcon('🐧')">🐧</span>
+        <span class="icon-option" data-icon="🦜" onclick="setPlayerIcon('🦜')">🦜</span>
+        <span class="icon-option" data-icon="🐊" onclick="setPlayerIcon('🐊')">🐊</span>
+        <span class="icon-option" data-icon="🦩" onclick="setPlayerIcon('🦩')">🦩</span>
+        <span class="icon-option" data-icon="🦖" onclick="setPlayerIcon('🦖')">🦖</span>
+        <span class="icon-option" data-icon="👾" onclick="setPlayerIcon('👾')">👾</span>
+        <span class="icon-option" data-icon="🤖" onclick="setPlayerIcon('🤖')">🤖</span>
+        <span class="icon-option" data-icon="😈" onclick="setPlayerIcon('😈')">😈</span>
+        <span class="icon-option" data-icon="😠" onclick="setPlayerIcon('😠')">😠</span>
+        <span class="icon-option" data-icon="💀" onclick="setPlayerIcon('💀')">💀</span>
+        <span class="icon-option" data-icon="🔥" onclick="setPlayerIcon('🔥')">🔥</span>
+        <span class="icon-option" data-icon="⚡" onclick="setPlayerIcon('⚡')">⚡</span>
+        <span class="icon-option" data-icon="🎯" onclick="setPlayerIcon('🎯')">🎯</span>
         <span class="icon-option" data-icon="🐾" onclick="setPlayerIcon('🐾')">🐾</span>
         <span class="icon-option" data-icon="🐶" onclick="setPlayerIcon('🐶')">🐶</span>
       </div>
@@ -150,6 +166,21 @@
     <img src="images/tippy/tippy-cone.jpeg" class="tippy-cone-photo" alt="Tippy in cone" />
     <p class="tippy-cone-label">Cone of Shame for last place 😂</p>
     <button class="btn btn-create" onclick="backToLobby()">Play Again 🐾</button>
+  </div>
+</div>
+
+<!-- ══════════════════ ROUND END ══════════════════ -->
+<div id="screen-round-end" class="screen">
+  <div class="round-end-inner">
+    <div class="round-end-title">Round Over!</div>
+    <p id="round-end-goout" class="round-end-goout"></p>
+    <div>
+      <img id="round-end-tippy-img" src="images/tippy/tippy-happy.jpeg" class="tippy-round-photo" alt="Tippy" />
+      <p id="round-end-tippy-caption" class="round-end-tippy-caption"></p>
+    </div>
+    <div id="round-end-scores" class="round-end-scores"></div>
+    <button id="btn-next-round" class="btn btn-create" onclick="startNextRound()" style="display:none">Start Next Round 🐾</button>
+    <p id="round-end-waiting" class="hint" style="display:none">Waiting for host to start next round…</p>
   </div>
 </div>
 

@@ -74,39 +74,102 @@ function updateGallery() {
   img.classList.add('gallery-fade-in');
 }
 
-// ── Tippy celebration popup ──
+// ── Tippy popup (shown to all players via Firebase broadcast) ──
 let _popupTimer = null;
-const TIPPY_MOMENTS = [
-  { img: 'images/tippy/tippy-happy.jpeg',  text: '🐾 Phase down! Tippy is hyped!' },
-  { img: 'images/tippy/tippy-alert.jpeg',  text: '🐾 WOOF! Let\'s GO!' },
-  { img: 'images/tippy/tippy-happy.jpeg',  text: '🐾 Good boi move right there!' },
-];
-let _momentIdx = 0;
 
-export function showTippyCelebration(customText) {
+export function showTippyPopup(text, img) {
   const popup = document.getElementById('tippy-popup');
-  const img   = document.getElementById('tippy-popup-img');
+  const imgEl = document.getElementById('tippy-popup-img');
   const txt   = document.getElementById('tippy-popup-text');
   if (!popup) return;
-  const moment = TIPPY_MOMENTS[_momentIdx % TIPPY_MOMENTS.length];
-  _momentIdx++;
-  img.src   = moment.img;
-  txt.textContent = customText || moment.text;
+  imgEl.src = img || 'images/tippy/tippy-happy.jpeg';
+  txt.textContent = text || '🐾 Woof!';
   popup.classList.add('show');
   if (_popupTimer) clearTimeout(_popupTimer);
-  _popupTimer = setTimeout(() => popup.classList.remove('show'), 2800);
+  _popupTimer = setTimeout(() => popup.classList.remove('show'), 3500);
 }
 
-export function showTippySkip() {
-  const popup = document.getElementById('tippy-popup');
-  const img   = document.getElementById('tippy-popup-img');
-  const txt   = document.getElementById('tippy-popup-text');
-  if (!popup) return;
-  img.src = 'images/tippy/tippy-cone.jpeg';
-  txt.textContent = '🏆 SKIPPED! Cone of shame!';
-  popup.classList.add('show');
-  if (_popupTimer) clearTimeout(_popupTimer);
-  _popupTimer = setTimeout(() => popup.classList.remove('show'), 2800);
+// ── Round-end scoring screen ──
+export function showRoundEndScreen(data, localState) {
+  showScreen('round-end');
+  const order   = firebaseToArray(data.playerOrder || []);
+  const summary = data.roundSummary || {};
+  const goOutPid    = summary.goOutPlayer;
+  const scoreDeltas = summary.scoreDeltas || {};
+  const completedPhase = summary.completedPhase || {};
+  const prevPhase   = summary.prevPhase || {};
+
+  // Who went out
+  const goOutPlayer = goOutPid ? data.players?.[goOutPid] : null;
+  const goOutEl = document.getElementById('round-end-goout');
+  goOutEl.textContent = goOutPlayer
+    ? `${goOutPlayer.icon || '🐾'} ${goOutPlayer.name} went out!`
+    : 'Round complete!';
+
+  // Sort players by rank (highest phase, then lowest score)
+  const sorted = [...order].sort((a, b) => {
+    const pa = data.players[a], pb = data.players[b];
+    const phaseA = pa.phase || 1, phaseB = pb.phase || 1;
+    if (phaseB !== phaseA) return phaseB - phaseA;
+    return (pa.score || 0) - (pb.score || 0);
+  });
+  const myRank = sorted.indexOf(localState.playerId);
+  const total  = sorted.length;
+
+  // Pick Tippy photo + caption based on my rank
+  let tippyImg, tippyCaption;
+  if (myRank === 0) {
+    tippyImg    = 'images/tippy/tippy-happy.jpeg';
+    tippyCaption = '🐾 Tippy says you\'re crushing it!';
+  } else if (myRank === total - 1) {
+    tippyImg    = 'images/tippy/tippy-cone.jpeg';
+    tippyCaption = '😂 Cone of shame... but there\'s still time!';
+  } else if (myRank < total / 2) {
+    tippyImg    = 'images/tippy/tippy-alert.jpeg';
+    tippyCaption = '👀 Tippy is watching your every move!';
+  } else {
+    tippyImg    = 'images/tippy/tippy-yawn.jpeg';
+    tippyCaption = '🥱 Tippy is not impressed...';
+  }
+  document.getElementById('round-end-tippy-img').src     = tippyImg;
+  document.getElementById('round-end-tippy-caption').textContent = tippyCaption;
+
+  // Score table
+  const scoresEl = document.getElementById('round-end-scores');
+  scoresEl.innerHTML = '';
+  sorted.forEach((pid, rank) => {
+    const p     = data.players[pid];
+    const delta = scoreDeltas[pid] ?? 0;
+    const phase = Math.min(p.phase || 1, 10);
+    const didComplete = completedPhase[pid];
+    const prev  = prevPhase[pid] || phase;
+
+    const row = document.createElement('div');
+    row.className = 'round-score-row' + (rank === 0 ? ' round-leader' : '');
+
+    const deltaText  = delta === 0 ? '+0 pts ✓' : `+${delta} pts`;
+    const deltaClass = 'round-score-delta' + (delta === 0 ? ' zero-delta' : '');
+    const phaseLabel = didComplete ? `Phase ${prev} ✓ → ${phase}` : `Phase ${phase}`;
+
+    row.innerHTML = `
+      <span class="round-score-player">${p.icon || '🎮'} ${p.name}</span>
+      <span class="round-score-phase">${phaseLabel}</span>
+      <span class="${deltaClass}">${deltaText}</span>
+      <span class="round-score-total">${p.score || 0} total</span>
+    `;
+    scoresEl.appendChild(row);
+  });
+
+  // Show start button to host, waiting message to others
+  const btnNext   = document.getElementById('btn-next-round');
+  const waitingEl = document.getElementById('round-end-waiting');
+  if (localState.isHost) {
+    btnNext.style.display   = '';
+    waitingEl.style.display = 'none';
+  } else {
+    btnNext.style.display   = 'none';
+    waitingEl.style.display = '';
+  }
 }
 
 // ── Message toast ──
@@ -119,14 +182,21 @@ export function showMessage(text, duration = 3000) {
   _msgTimer = setTimeout(() => el.classList.remove('show'), duration);
 }
 
-// ── Phase pill badges ──
-function renderPhasePills(phaseObj) {
+// ── Phase card visualization (mini card rectangles) ──
+function renderPhaseVisual(phaseObj) {
   if (!phaseObj) return '';
-  const icons  = { set: '🎯', run: '➡️', color: '🌈' };
-  const labels = { set: 'Set', run: 'Run', color: 'Color' };
-  return phaseObj.parts.map(p =>
-    `<span class="phase-pill phase-pill-${p.type}">${icons[p.type]} ${labels[p.type]} ${p.count}</span>`
-  ).join('');
+  return phaseObj.parts.map(part => {
+    let cards = '';
+    for (let i = 0; i < part.count; i++) {
+      let label = '';
+      if (part.type === 'run')   label = (i + 1).toString();
+      else if (part.type === 'set')   label = '=';
+      else if (part.type === 'color') label = '♦';
+      cards += `<span class="mini-card mini-card-${part.type}">${label}</span>`;
+    }
+    const typeLabel = { set: `Set ${part.count}`, run: `Run ${part.count}`, color: `Color ${part.count}` }[part.type];
+    return `<span class="phase-visual-group"><span class="phase-visual-cards">${cards}</span><span class="phase-visual-label">${typeLabel}</span></span>`;
+  }).join('<span class="phase-visual-plus">+</span>');
 }
 
 // ── Track previous turn for "your turn!" notification ──
@@ -143,7 +213,7 @@ export function renderBoard(data, localState) {
   const phaseObj = PHASES[phaseNum - 1];
   document.getElementById('hud-phase').textContent   = phaseNum;
   document.getElementById('my-phase-num').textContent = phaseNum;
-  document.getElementById('my-phase-desc').innerHTML  = renderPhasePills(phaseObj);
+  document.getElementById('my-phase-desc').innerHTML  = `<span class="phase-visual">${renderPhaseVisual(phaseObj)}</span>`;
   document.getElementById('my-name-display').textContent =
     (myPlayer?.icon || '') + ' ' + (myPlayer?.name || '');
 
@@ -215,7 +285,7 @@ function renderOpponents(data, myId) {
     panel.innerHTML = `
       <div class="opp-name">${p.icon || '🎮'} ${p.name} ${isTheirTurn ? '▶' : ''}</div>
       <div class="opp-info">Phase ${phaseNum} · ${p.score || 0} pts ${p.phaseDone ? '✓' : ''}</div>
-      <div class="opp-phase-pills">${renderPhasePills(phaseObj)}</div>
+      <div class="opp-phase-visual phase-visual">${renderPhaseVisual(phaseObj)}</div>
       <div class="opp-cards"></div>
     `;
     const cardsEl = panel.querySelector('.opp-cards');
