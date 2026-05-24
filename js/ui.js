@@ -20,8 +20,6 @@ export function showScreen(name) {
   else stopGallery();
 }
 
-showScreen('lobby');
-
 // ── Tippy gallery (waiting room slideshow) ──
 const GALLERY = [
   { src: 'images/tippy/tippy-hero.jpeg',    caption: 'Tippy is ready to play! 🐾' },
@@ -329,3 +327,6 @@ export function renderHand(localState) {
     zone.appendChild(cEl);
   });
 }
+
+// ── Initialize: show lobby after all variables are declared ──
+showScreen('lobby');
