@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phase 10 – Multiplayer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!-- ══════════════════ LOBBY ══════════════════ -->
+<div id="screen-lobby" class="screen active">
+  <div class="lobby-bg"></div>
+  <div class="lobby-card">
+    <h1 class="logo">PHASE<span>10</span></h1>
+    <p class="tagline">Multiplayer · Play Anywhere</p>
+
+    <div class="field-group">
+      <label>Your Name</label>
+      <input id="input-name" type="text" placeholder="Enter your name" maxlength="16" />
+    </div>
+
+    <div class="divider"><span>Create or Join</span></div>
+
+    <div class="field-group">
+      <label>Room Code</label>
+      <input id="input-room" type="text" placeholder="e.g. RUBY7" maxlength="8" style="text-transform:uppercase" />
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-create" onclick="createRoom()">Create Room</button>
+      <button class="btn btn-join"   onclick="joinRoom()">Join Room</button>
+    </div>
+    <p id="lobby-error" class="error-msg"></p>
+  </div>
+</div>
+
+<!-- ══════════════════ WAITING ROOM ══════════════════ -->
+<div id="screen-waiting" class="screen">
+  <div class="waiting-inner">
+    <h2>Waiting for Players</h2>
+    <p>Room Code: <strong id="display-room-code"></strong></p>
+    <p class="hint">Share this code with friends — 2 to 6 players</p>
+    <div id="player-list" class="player-list"></div>
+    <button id="btn-start" class="btn btn-create" style="display:none" onclick="startGame()">Start Game</button>
+    <p id="waiting-msg" class="hint"></p>
+  </div>
+</div>
+
+<!-- ══════════════════ GAME BOARD ══════════════════ -->
+<div id="screen-game" class="screen">
+
+  <!-- Top bar -->
+  <div class="top-bar">
+    <div class="room-badge">Room: <span id="hud-room"></span></div>
+    <div class="turn-indicator" id="turn-indicator">Waiting…</div>
+    <div class="phase-badge">Your Phase: <span id="hud-phase">1</span></div>
+  </div>
+
+  <!-- Opponent panels -->
+  <div id="opponents-area" class="opponents-area"></div>
+
+  <!-- Center table -->
+  <div class="table-area">
+    <div class="pile-zone">
+      <div class="pile draw-pile" id="draw-pile" onclick="drawCard('draw')">
+        <div class="pile-back"></div>
+        <span class="pile-label">Draw</span>
+      </div>
+      <div class="pile discard-pile" id="discard-pile" onclick="drawCard('discard')">
+        <div id="discard-top" class="discard-top-card"></div>
+        <span class="pile-label">Discard</span>
+      </div>
+    </div>
+
+    <!-- Meld zones (laid-down phases) -->
+    <div id="meld-area" class="meld-area"></div>
+  </div>
+
+  <!-- Player hand -->
+  <div class="player-area">
+    <div class="player-info-bar">
+      <span id="my-name-display"></span>
+      <span class="phase-info">Phase <span id="my-phase-num">1</span>: <span id="my-phase-desc"></span></span>
+    </div>
+    <div id="my-hand" class="hand-zone"></div>
+
+    <div class="action-bar">
+      <button class="btn btn-sm" onclick="sortHand()">Sort Hand</button>
+      <button class="btn btn-sm btn-lay" id="btn-lay" onclick="layDownPhase()" disabled>Lay Down Phase</button>
+      <button class="btn btn-sm btn-discard" id="btn-discard" onclick="discardSelected()" disabled>Discard</button>
+    </div>
+  </div>
+
+  <div id="game-message" class="game-message"></div>
+</div>
+
+<!-- ══════════════════ END SCREEN ══════════════════ -->
+<div id="screen-end" class="screen">
+  <div class="end-inner">
+    <h2 id="end-title">Game Over!</h2>
+    <div id="end-scores" class="end-scores"></div>
+    <button class="btn btn-create" onclick="backToLobby()">Back to Lobby</button>
+  </div>
+</div>
+
+<!-- Firebase -->
+<script type="module" src="js/firebase-config.js"></script>
+<script type="module" src="js/cards.js"></script>
+<script type="module" src="js/game.js"></script>
+<script type="module" src="js/ui.js"></script>
+</body>
+</html>
