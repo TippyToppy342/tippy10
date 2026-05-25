@@ -19,6 +19,7 @@ export let localState = {
   selectedCards: [],
   gameData: null,
   lastPopupTs: 0,
+  sortMode: null,   // 'number' | 'color' | 'wilds' | null — persists across draws
 };
 
 // ── Popup celebrations — images + varied text pools ──
@@ -143,10 +144,12 @@ function _renderWildModalRun() {
     const el = document.createElement('div');
     el.className = `card card-${card.color}`;
     el.style.cssText = 'width:52px;height:74px;position:relative;flex-shrink:0;cursor:default;';
-    if (card.type === 'wild' && card.declaredValue) {
-      el.innerHTML = `<span class="corner tl">${card.declaredValue}</span><span class="center-num">★</span><span class="corner br">${card.declaredValue}</span>`;
-    } else if (card.type === 'wild') {
-      el.innerHTML = `<span class="corner tl">W</span><span class="center-num">★</span><span class="corner br">W</span>`;
+    if (card.type === 'wild') {
+      const dv = card.declaredValue;
+      const tl = dv ?? 'W';
+      el.innerHTML = `<span class="corner tl">${tl}</span>`
+        + `<img class="wild-tippy-img" src="images/tippy/tippy-closeup.jpeg" alt="Wild" draggable="false" />`
+        + `<span class="corner br">${tl}</span>`;
     } else {
       el.innerHTML = `<span class="corner tl">${card.number}</span><span class="center-num">${card.number}</span><span class="corner br">${card.number}</span>`;
     }
@@ -556,8 +559,10 @@ window.drawCard = async function(source) {
   const newHand = [...localState.hand, draw];
   localState.hand = newHand;
   localState.selectedCards = [];
-  updates[`rooms/${localState.roomCode}/players/${localState.playerId}/hand`]      = newHand;
-  updates[`rooms/${localState.roomCode}/players/${localState.playerId}/handCount`] = newHand.length;
+  // Re-apply persistent sort (local only — Firebase just stores the card data, not order)
+  applySortMode();
+  updates[`rooms/${localState.roomCode}/players/${localState.playerId}/hand`]      = localState.hand;
+  updates[`rooms/${localState.roomCode}/players/${localState.playerId}/handCount`] = localState.hand.length;
   updates[`rooms/${localState.roomCode}/turnPhase`] = 'play';
 
   await update(ref(db), updates);
@@ -848,36 +853,58 @@ window.startNextRound = async function() {
 };
 
 // ─────────────────────────────────────────────
-//  SORT HAND
+//  SORT HAND — persistent mode
+//  Clicking the same button again toggles it OFF.
+//  Drag-to-reorder (in ui.js) also clears the mode.
 // ─────────────────────────────────────────────
-window.sortHandByNumber = function() {
+
+// Internal sort executors (no side-effects, just mutate localState.hand)
+function _execSortByNumber() {
   const typeOrder = { number: 0, wild: 1, skip: 2 };
   localState.hand.sort((a, b) => {
     const ta = typeOrder[a.type] ?? 3, tb = typeOrder[b.type] ?? 3;
     if (ta !== tb) return ta - tb;
     return a.number - b.number;
   });
-  renderHand(localState);
-};
-
-window.sortHandByColor = function() {
+}
+function _execSortByColor() {
   const colorOrder = { red: 0, blue: 1, green: 2, yellow: 3, wild: 4, skip: 5 };
   localState.hand.sort((a, b) => {
     const ca = colorOrder[a.color] ?? 6, cb = colorOrder[b.color] ?? 6;
     if (ca !== cb) return ca - cb;
     return a.number - b.number;
   });
-  renderHand(localState);
-};
-
-window.sortHandWildsFirst = function() {
-  // Put wilds first, skips last, numbers in middle grouped by value
+}
+function _execSortWildsFirst() {
   const typeOrder = { wild: 0, number: 1, skip: 2 };
   localState.hand.sort((a, b) => {
     const ta = typeOrder[a.type] ?? 3, tb = typeOrder[b.type] ?? 3;
     if (ta !== tb) return ta - tb;
     return a.number - b.number;
   });
+}
+
+/** Re-apply the active sort mode — called after drawing a card */
+export function applySortMode() {
+  if (localState.sortMode === 'number') _execSortByNumber();
+  else if (localState.sortMode === 'color')  _execSortByColor();
+  else if (localState.sortMode === 'wilds')  _execSortWildsFirst();
+}
+
+// Public sort buttons — toggle mode on/off, then re-sort and re-render
+window.sortHandByNumber = function() {
+  localState.sortMode = localState.sortMode === 'number' ? null : 'number';
+  applySortMode();
+  renderHand(localState);
+};
+window.sortHandByColor = function() {
+  localState.sortMode = localState.sortMode === 'color' ? null : 'color';
+  applySortMode();
+  renderHand(localState);
+};
+window.sortHandWildsFirst = function() {
+  localState.sortMode = localState.sortMode === 'wilds' ? null : 'wilds';
+  applySortMode();
   renderHand(localState);
 };
 

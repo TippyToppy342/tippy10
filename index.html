@@ -13,8 +13,7 @@
 <!-- ══════════════════ SCANLINE OVERLAY (Tippy10 '95 theme) ══════════════════ -->
 <div id="scanline-overlay" class="scanline-overlay"></div>
 
-<!-- ══════════════════ SETTINGS GEAR BUTTON ══════════════════ -->
-<button id="settings-btn" class="settings-gear-btn" onclick="toggleSettingsPanel()" title="Options">⚙</button>
+<!-- Settings gear is embedded inside the game top-bar (see #screen-game) -->
 
 <!-- ══════════════════ SETTINGS PANEL ══════════════════ -->
 <div id="settings-overlay" class="settings-overlay" onclick="closeSettingsPanelIfBg(event)">
@@ -193,7 +192,10 @@
   <div class="top-bar">
     <div class="room-badge">Room: <span id="hud-room"></span></div>
     <div class="turn-indicator" id="turn-indicator">Waiting…</div>
-    <div class="phase-badge">Phase: <span id="hud-phase">1</span></div>
+    <div class="top-bar-right">
+      <div class="phase-badge">Phase: <span id="hud-phase">1</span></div>
+      <button id="settings-btn" class="settings-gear-btn" onclick="toggleSettingsPanel()" title="Options">⚙</button>
+    </div>
   </div>
 
   <!-- Scoreboard strip -->
@@ -227,9 +229,9 @@
 
     <div class="action-bar">
       <div class="sort-group">
-        <button class="btn btn-sm" onclick="sortHandByNumber()" title="Sort by number">🔢</button>
-        <button class="btn btn-sm" onclick="sortHandByColor()"  title="Sort by color">🎨</button>
-        <button class="btn btn-sm" onclick="sortHandWildsFirst()" title="Wilds first">★</button>
+        <button id="btn-sort-number" class="btn btn-sm" onclick="sortHandByNumber()" title="Sort by number">🔢</button>
+        <button id="btn-sort-color"  class="btn btn-sm" onclick="sortHandByColor()"  title="Sort by color">🎨</button>
+        <button id="btn-sort-wilds"  class="btn btn-sm" onclick="sortHandWildsFirst()" title="Wilds first">★</button>
       </div>
       <span class="drag-hint">drag to reorder</span>
       <button class="btn btn-sm btn-lay"     id="btn-lay"     onclick="layDownPhase()"    disabled>Lay Down Phase</button>

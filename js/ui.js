@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════
 
 import { renderCard, PHASES, firebaseToArray } from './cards.js';
-import { updateActionButtons } from './game.js';
+import { updateActionButtons, applySortMode } from './game.js';
 
 // ── Screen switcher ──
 export function showScreen(name) {
@@ -381,10 +381,22 @@ function renderMelds(data, myId) {
 // ── Drag state for hand reordering ──
 let _dragSrcId = null;
 
+// ── Highlight whichever sort button is active ──
+function updateSortButtons(sortMode) {
+  const map = { number: 'btn-sort-number', color: 'btn-sort-color', wilds: 'btn-sort-wilds' };
+  for (const [mode, id] of Object.entries(map)) {
+    const btn = document.getElementById(id);
+    if (btn) btn.classList.toggle('sort-active', sortMode === mode);
+  }
+}
+
 // ── My Hand ──
 export function renderHand(localState) {
   const zone = document.getElementById('my-hand');
   zone.innerHTML = '';
+
+  // Keep sort buttons in sync with current mode
+  updateSortButtons(localState.sortMode);
   const data        = localState.gameData;
   const isMyTurn    = data?.currentTurn === localState.playerId;
   const isPlayPhase = data?.turnPhase === 'play';
@@ -434,6 +446,8 @@ export function renderHand(localState) {
       const [moved] = newHand.splice(srcIdx, 1);
       newHand.splice(dstIdx, 0, moved);
       localState.hand = newHand;
+      // Manual reorder overrides the persistent sort mode
+      localState.sortMode = null;
       renderHand(localState);
     });
 
