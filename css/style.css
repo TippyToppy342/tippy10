@@ -421,16 +421,151 @@ body {
 .game-message.show { opacity: 1; }
 
 /* ═══════════════════════════════════════════
-   END SCREEN
+   END SCREEN — OVER THE TOP 🎉
 ═══════════════════════════════════════════ */
-#screen-end { flex-direction: column; background: var(--bg); overflow-y: auto; }
-.end-inner { text-align: center; padding: 24px 16px; display: flex; flex-direction: column; align-items: center; }
-.end-inner h2 { font-family: 'Bebas Neue', sans-serif; font-size: 52px; color: var(--gold); }
-.end-scores { margin: 24px 0; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+#screen-end {
+  flex-direction: column;
+  background: radial-gradient(ellipse at 50% 20%, #2a0a4a 0%, #0d1b2a 65%);
+  overflow-y: auto;
+  position: relative;
+}
+
+/* ── Confetti ── */
+.confetti-container {
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 1;
+  overflow: hidden;
+}
+.confetti-piece {
+  position: absolute;
+  top: 0;
+  border-radius: 2px;
+  animation: confettiFall linear forwards;
+  pointer-events: none;
+}
+@keyframes confettiFall {
+  0%   { transform: translateY(-30px) rotate(0deg);   opacity: 1; }
+  85%  { opacity: 1; }
+  100% { transform: translateY(110vh) rotate(800deg); opacity: 0; }
+}
+
+/* ── Layout ── */
+.end-inner {
+  position: relative; z-index: 2;
+  text-align: center; padding: 20px 20px 32px;
+  display: flex; flex-direction: column; align-items: center;
+  max-width: 520px; width: 100%;
+}
+
+/* ── Crown ── */
+.end-crown-wrap { margin-bottom: -8px; }
+.end-crown {
+  font-size: 60px; display: inline-block;
+  animation: crownFloat 2s ease-in-out infinite;
+  filter: drop-shadow(0 0 16px rgba(255,215,0,.9));
+}
+@keyframes crownFloat {
+  0%, 100% { transform: translateY(0) rotate(-6deg); }
+  50%       { transform: translateY(-12px) rotate(6deg); }
+}
+
+/* ── Tippy win photo ── */
+.tippy-win-photo {
+  width: 220px; height: 220px;
+  object-fit: cover; object-position: center top;
+  border-radius: 50%;
+  border: 5px solid var(--gold);
+  box-shadow: 0 0 0 8px rgba(255,215,0,.15), 0 0 60px rgba(255,215,0,.5), 0 16px 50px rgba(0,0,0,.7);
+  animation: tippyWinBounce .9s cubic-bezier(.34,1.56,.64,1) both, tippyWinBob 2.5s 1s ease-in-out infinite;
+}
+@keyframes tippyWinBounce {
+  from { transform: scale(0) rotate(-20deg); opacity: 0; }
+  to   { transform: scale(1) rotate(0deg);  opacity: 1; }
+}
+@keyframes tippyWinBob {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%       { transform: translateY(-10px) scale(1.03); }
+}
+
+/* ── Winner title ── */
+#end-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 68px; line-height: 1;
+  margin: 10px 0 2px;
+  background: linear-gradient(90deg, #ffd700, #ff6b6b, #ff6fb7, #ffd700, #45b7d1, #ffd700);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: titleShimmer 3s linear infinite, titlePop .6s .5s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes titleShimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+@keyframes titlePop {
+  from { transform: scale(0.4); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+.end-champ-label {
+  font-size: 12px; font-weight: 800;
+  color: var(--gold); letter-spacing: 3px; text-transform: uppercase;
+  margin-bottom: 18px;
+  animation: fadeSlideUp .5s .9s both;
+}
+
+/* ── Score rows ── */
+.end-scores {
+  margin: 0 0 12px;
+  display: flex; flex-direction: column; gap: 8px;
+  align-items: center; width: 100%;
+}
 .score-row {
-  background: var(--surface); border-radius: 10px;
-  padding: 10px 24px; min-width: 240px;
-  display: flex; justify-content: space-between; gap: 16px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 12px;
+  padding: 11px 20px; min-width: 300px;
+  display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  font-weight: 700; font-size: 15px;
+  opacity: 0;
+  animation: slideInRow .45s forwards;
+}
+.score-row.rank-1 { border-color: var(--gold);  background: rgba(255,215,0,.12);  font-size: 17px; }
+.score-row.rank-2 { border-color: #c0c0c0;      background: rgba(192,192,192,.08); }
+.score-row.rank-3 { border-color: #cd7f32;      background: rgba(205,127,50,.08);  }
+@keyframes slideInRow {
+  from { transform: translateX(-40px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+.score-rank { font-size: 22px; margin-right: 4px; }
+.score-row-me { color: var(--gold); }
+
+/* ── Cone of shame ── */
+.end-loser-wrap { margin-top: 4px; }
+.tippy-cone-photo {
+  width: 130px; height: 130px;
+  object-fit: cover; object-position: center;
+  border-radius: 14px; border: 3px solid #444;
+  opacity: .85;
+  animation: coneShake .5s 2.4s ease-in-out 4;
+}
+@keyframes coneShake {
+  0%, 100% { transform: rotate(0deg); }
+  25%       { transform: rotate(-9deg) scale(1.05); }
+  75%       { transform: rotate(9deg) scale(1.05); }
+}
+.tippy-cone-label { font-size: 13px; color: #667; font-style: italic; margin: 8px 0 16px; }
+
+/* ── Play Again button ── */
+.end-play-again {
+  font-size: 20px; padding: 14px 44px;
+  animation: fadeSlideUp .5s 2.8s both;
+  box-shadow: 0 0 30px rgba(255,215,0,.3);
+}
+@keyframes fadeSlideUp {
+  from { transform: translateY(16px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
 }
 
 /* ═══════════════════════════════════════════
@@ -444,7 +579,9 @@ body {
   .turn-indicator { font-size: 15px; }
   .drag-hint { display: none; }
   .tippy-win-photo { width: 160px; height: 160px; }
-  .tippy-cone-photo { width: 120px; height: 120px; }
+  .tippy-cone-photo { width: 100px; height: 100px; }
+  #end-title { font-size: 48px; }
+  .score-row { min-width: 260px; }
 }
 
 /* ═══════════════════════════════════════════

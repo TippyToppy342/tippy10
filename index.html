@@ -180,13 +180,18 @@
 
 <!-- ══════════════════ END SCREEN ══════════════════ -->
 <div id="screen-end" class="screen">
+  <div id="confetti-container" class="confetti-container"></div>
   <div class="end-inner">
-    <img src="images/tippy/tippy-happy.jpeg" class="tippy-win-photo" alt="Tippy celebrating" />
+    <div class="end-crown-wrap"><span class="end-crown">👑</span></div>
+    <img id="end-tippy-img" src="images/tippy/tippy-happy.jpeg" class="tippy-win-photo" alt="Tippy celebrating" />
     <h2 id="end-title">Game Over!</h2>
+    <p class="end-champ-label">🐾 TIPPY 10 CHAMPION 🐾</p>
     <div id="end-scores" class="end-scores"></div>
-    <img src="images/tippy/tippy-cone.jpeg" class="tippy-cone-photo" alt="Tippy in cone" />
-    <p class="tippy-cone-label">Cone of Shame for last place 😂</p>
-    <button class="btn btn-create" onclick="backToLobby()">Play Again 🐾</button>
+    <div class="end-loser-wrap">
+      <img src="images/tippy/tippy-cone.jpeg" class="tippy-cone-photo" alt="Tippy in cone" />
+      <p class="tippy-cone-label">Cone of Shame for last place 😂</p>
+    </div>
+    <button class="btn btn-create end-play-again" onclick="backToLobby()">Play Again 🐾</button>
   </div>
 </div>
 

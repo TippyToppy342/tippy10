@@ -916,8 +916,22 @@ export function updateActionButtons() {
 // ─────────────────────────────────────────────
 //  END SCREEN
 // ─────────────────────────────────────────────
+const WIN_TIPPY_IMGS = [
+  'images/tippy/tippy-happy.jpeg',
+  'images/tippy/tippy-standup.jpeg',
+  'images/tippy/tippy-carseat.jpeg',
+  'images/tippy/tippy-park.jpeg',
+  'images/tippy/tippy-lick.jpeg',
+  'images/tippy/tippy-upsidedown.jpeg',
+];
+
 function showEndScreen(data) {
   showScreen('end');
+
+  // Pick a random hype Tippy photo
+  const img = WIN_TIPPY_IMGS[Math.floor(Math.random() * WIN_TIPPY_IMGS.length)];
+  document.getElementById('end-tippy-img').src = img;
+
   const players = Object.entries(data.players || {})
     .sort((a, b) => {
       const pa = a[1], pb = b[1];
@@ -927,16 +941,51 @@ function showEndScreen(data) {
 
   const winner = players[0];
   document.getElementById('end-title').textContent =
-    `${winner[1].icon || ''} ${winner[1].name} Wins! 🎉`;
+    `${winner[1].icon || ''} ${winner[1].name} Wins!`;
 
+  const rankMedals = ['🥇','🥈','🥉'];
   const scoresEl = document.getElementById('end-scores');
   scoresEl.innerHTML = '';
   players.forEach(([pid, p], i) => {
     const row = document.createElement('div');
-    row.className = 'score-row';
-    row.innerHTML = `<span>${i+1}. ${p.icon || ''} ${p.name}</span><span>Phase ${Math.min(p.phase,10)} · ${p.score} pts</span>`;
+    row.className = `score-row rank-${i + 1}`;
+    row.style.animationDelay = `${1.2 + i * 0.18}s`;
+    const medal = rankMedals[i] ?? `${i + 1}.`;
+    const isMe  = pid === localState.playerId;
+    row.innerHTML = `
+      <span class="${isMe ? 'score-row-me' : ''}">
+        <span class="score-rank">${medal}</span>${p.icon || ''} ${p.name}${isMe ? ' 👈' : ''}
+      </span>
+      <span>Phase&nbsp;${Math.min(p.phase, 10)} &middot; ${p.score}&nbsp;pts</span>`;
     scoresEl.appendChild(row);
   });
+
+  launchConfetti();
+}
+
+function launchConfetti() {
+  const container = document.getElementById('confetti-container');
+  if (!container) return;
+  container.innerHTML = '';
+  const colors = ['#ffd700','#ff6b6b','#4ecdc4','#45b7d1','#96e6a1','#ffd93d','#ff6fb7','#a29bfe','#fd79a8'];
+  const shapes = [2, 4, 50]; // border-radius values: square, slightly rounded, circle
+  for (let i = 0; i < 150; i++) {
+    const el  = document.createElement('div');
+    el.className = 'confetti-piece';
+    const size = 6 + Math.random() * 10;
+    const br   = shapes[Math.floor(Math.random() * shapes.length)];
+    el.style.cssText = `
+      left:${Math.random() * 100}%;
+      background:${colors[Math.floor(Math.random() * colors.length)]};
+      animation-delay:${Math.random() * 3}s;
+      animation-duration:${3.5 + Math.random() * 2.5}s;
+      width:${size}px;
+      height:${size * (0.6 + Math.random() * 1.2)}px;
+      border-radius:${br}%;
+      opacity:${0.7 + Math.random() * 0.3};
+    `;
+    container.appendChild(el);
+  }
 }
 
 window.backToLobby = async function() {
