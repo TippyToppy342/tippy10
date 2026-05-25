@@ -21,16 +21,37 @@ export let localState = {
   lastPopupTs: 0,
 };
 
-// ── Popup images for celebrations ──
-const POPUP_IMGS = [
-  'images/tippy/tippy-happy.jpeg',
-  'images/tippy/tippy-alert.jpeg',
-  'images/tippy/tippy-carseat.jpeg',
-  'images/tippy/tippy-park.jpeg',
-  'images/tippy/tippy-lick.jpeg',
+// ── Popup celebrations — images + varied text pools ──
+const PHASE_DOWN_MOMENTS = [
+  { img: 'images/tippy/tippy-happy.jpeg',      text: '🐾 Phase down! Tippy is hyped!' },
+  { img: 'images/tippy/tippy-park.jpeg',        text: '🌿 Tippy says that was clean!' },
+  { img: 'images/tippy/tippy-carseat.jpeg',     text: '😛 Let\'s gooo! Tippy is pumped!' },
+  { img: 'images/tippy/tippy-lick.jpeg',        text: '👅 Tippy approves of that play!' },
+  { img: 'images/tippy/tippy-alert.jpeg',       text: '👀 WOOF! Nice one!' },
+  { img: 'images/tippy/tippy-standup.jpeg',     text: '🐾 Tippy demands more phases!' },
+  { img: 'images/tippy/tippy-donut.jpeg',       text: '🍩 Sweet play, donut you think?' },
+  { img: 'images/tippy/tippy-upsidedown.jpeg',  text: '🙃 Tippy\'s world is upside down with joy!' },
+  { img: 'images/tippy/tippy-window.jpeg',      text: '🔭 Tippy spotted a winner emerging!' },
+  { img: 'images/tippy/tippy-pinkblanket.jpeg', text: '🩷 Tippy peeks and approves!' },
+  { img: 'images/tippy/tippy-closeup.jpeg',     text: '👁️ Tippy is WATCHING. Nice move.' },
+  { img: 'images/tippy/tippy-sidewalk.jpeg',    text: '🚶 Tippy nods. Very respectable.' },
 ];
-let _popupImgIdx = 0;
-function nextPopupImg() { return POPUP_IMGS[_popupImgIdx++ % POPUP_IMGS.length]; }
+const SKIP_MOMENTS = [
+  { img: 'images/tippy/tippy-cone.jpeg',   text: '⊘ Skip card! Cone of shame incoming!' },
+  { img: 'images/tippy/tippy-cone.jpeg',   text: '🏆 Someone got SKIPPED! Ha!' },
+  { img: 'images/tippy/tippy-yawn.jpeg',   text: '🥱 Skip! Tippy doesn\'t feel bad for you.' },
+  { img: 'images/tippy/tippy-sideeye.jpeg',text: '😑 Skip. Tippy gives maximum side-eye.' },
+];
+const GOOUT_MOMENTS = [
+  { img: 'images/tippy/tippy-happy.jpeg',  text: '🏆 went out! Tippy celebrates!' },
+  { img: 'images/tippy/tippy-park.jpeg',   text: '🌿 went out! Tippy is impressed!' },
+  { img: 'images/tippy/tippy-carseat.jpeg',text: '🚗 went out! Tippy is doing victory laps!' },
+  { img: 'images/tippy/tippy-lick.jpeg',   text: '👅 went out! Even Tippy is jealous.' },
+];
+let _phaseMomentIdx = 0, _skipMomentIdx = 0, _goOutMomentIdx = 0;
+function nextPhaseMoment()  { return PHASE_DOWN_MOMENTS[_phaseMomentIdx++  % PHASE_DOWN_MOMENTS.length]; }
+function nextSkipMoment()   { return SKIP_MOMENTS[_skipMomentIdx++   % SKIP_MOMENTS.length]; }
+function nextGoOutMoment()  { return GOOUT_MOMENTS[_goOutMomentIdx++ % GOOUT_MOMENTS.length]; }
 
 async function broadcastPopup(text, img) {
   if (!localState.roomCode) return;
@@ -163,7 +184,11 @@ async function declareWildsIfNeeded(resultGroups, phaseObj) {
     const part  = phaseObj.parts[i];
     if (part.type !== 'run') { out.push(group); continue; }
     const wilds = group.filter(c => c.type === 'wild');
-    if (!wilds.length) { out.push(group); continue; }
+    if (!wilds.length) {
+      // Sort even no-wild runs — player may have selected cards in any order
+      out.push(group.slice().sort((a, b) => a.number - b.number));
+      continue;
+    }
     const possibleStarts = getRunPossibleStarts(group, part.count);
     if (possibleStarts.length === 1) {
       out.push(buildRunWithStart(group, possibleStarts[0], part.count));
@@ -210,12 +235,98 @@ window.setPlayerIcon = function(icon) {
 };
 
 // ─────────────────────────────────────────────
+//  SESSION PERSISTENCE (save / resume)
+// ─────────────────────────────────────────────
+const SESSION_KEY = 'tippy10_session';
+
+function saveSession() {
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      roomCode:   localState.roomCode,
+      playerId:   localState.playerId,
+      playerName: localState.playerName,
+      playerIcon: localState.playerIcon,
+      isHost:     localState.isHost,
+    }));
+  } catch(e) { /* localStorage unavailable */ }
+}
+
+function clearSession() {
+  try { localStorage.removeItem(SESSION_KEY); } catch(e) {}
+}
+
+async function checkSavedSession() {
+  let raw;
+  try { raw = localStorage.getItem(SESSION_KEY); } catch(e) { return; }
+  if (!raw) return;
+  let session;
+  try { session = JSON.parse(raw); } catch { clearSession(); return; }
+  if (!session.roomCode || !session.playerId) { clearSession(); return; }
+
+  // Verify the room + player still exist in Firebase
+  try {
+    const snap = await get(ref(db, `rooms/${session.roomCode}/players/${session.playerId}`));
+    if (!snap.exists()) { clearSession(); return; }
+  } catch(e) { return; }
+
+  // Show the rejoin prompt in the lobby
+  document.getElementById('rejoin-room-text').textContent = `Room: ${session.roomCode}`;
+  document.getElementById('rejoin-name-text').textContent = `as ${session.playerIcon} ${session.playerName}`;
+  document.getElementById('rejoin-section').style.display = '';
+}
+
+window.rejoinGame = async function() {
+  let raw;
+  try { raw = localStorage.getItem(SESSION_KEY); } catch(e) { return; }
+  if (!raw) return;
+  let session;
+  try { session = JSON.parse(raw); } catch { clearSession(); return; }
+
+  // Verify room still exists
+  let snap;
+  try { snap = await get(ref(db, `rooms/${session.roomCode}`)); } catch(e) { setLobbyError('Connection error — try again'); return; }
+  if (!snap.exists()) {
+    clearSession();
+    document.getElementById('rejoin-section').style.display = 'none';
+    setLobbyError('That game no longer exists — start a new one');
+    return;
+  }
+
+  // Restore localState
+  localState.playerId   = session.playerId;
+  localState.playerName = session.playerName;
+  localState.playerIcon = session.playerIcon;
+  localState.roomCode   = session.roomCode;
+  localState.isHost     = session.isHost;
+  localState.hand       = [];
+  localState.selectedCards = [];
+  localState.lastPopupTs   = 0;
+
+  const data = snap.val();
+  if (data.status === 'waiting') {
+    enterWaiting();
+  } else {
+    // Game in progress — sync hand from Firebase and jump to the active screen
+    const myData = data.players?.[session.playerId];
+    if (myData?.hand) localState.hand = firebaseToArray(myData.hand);
+    subscribeRoom();
+    // handleRoomUpdate will show the correct screen
+  }
+};
+
+window.dismissRejoin = function() {
+  clearSession();
+  document.getElementById('rejoin-section').style.display = 'none';
+};
+
+// ─────────────────────────────────────────────
 //  LOBBY
 // ─────────────────────────────────────────────
 window.createRoom = async function() {
-  const name = document.getElementById('input-name').value.trim();
-  const room = document.getElementById('input-room').value.trim().toUpperCase() || randomCode();
-  const icon = localState.playerIcon || '🦁';
+  const name     = document.getElementById('input-name').value.trim();
+  const room     = document.getElementById('input-room').value.trim().toUpperCase() || randomCode();
+  const icon     = localState.playerIcon || '🦁';
+  const password = document.getElementById('input-password').value.trim();
   if (!name) { setLobbyError('Enter your name'); return; }
 
   localState.playerId   = 'p_' + Math.random().toString(36).slice(2,8);
@@ -227,22 +338,26 @@ window.createRoom = async function() {
   const snap = await get(roomRef);
   if (snap.exists()) { setLobbyError('Room already exists — pick another code'); return; }
 
-  await set(roomRef, {
+  const roomData = {
     host: localState.playerId,
     status: 'waiting',
     players: {
       [localState.playerId]: { name, icon, phase: 1, score: 0, handCount: 0, phaseDone: false }
     },
     playerOrder: [localState.playerId],
-  });
+  };
+  if (password) roomData.password = password;
 
+  await set(roomRef, roomData);
+  saveSession();
   enterWaiting();
 };
 
 window.joinRoom = async function() {
-  const name = document.getElementById('input-name').value.trim();
-  const room = document.getElementById('input-room').value.trim().toUpperCase();
-  const icon = localState.playerIcon || '🦁';
+  const name     = document.getElementById('input-name').value.trim();
+  const room     = document.getElementById('input-room').value.trim().toUpperCase();
+  const icon     = localState.playerIcon || '🦁';
+  const password = document.getElementById('input-password').value.trim();
   if (!name) { setLobbyError('Enter your name'); return; }
   if (!room) { setLobbyError('Enter a room code'); return; }
 
@@ -254,6 +369,12 @@ window.joinRoom = async function() {
   const count = Object.keys(data.players || {}).length;
   if (count >= 6) { setLobbyError('Room is full (max 6)'); return; }
 
+  // Password check
+  if (data.password) {
+    if (!password) { setLobbyError('This room requires a password 🔒'); return; }
+    if (password !== data.password) { setLobbyError('Wrong password — try again 🔒'); return; }
+  }
+
   localState.playerId   = 'p_' + Math.random().toString(36).slice(2,8);
   localState.playerName = name;
   localState.roomCode   = room;
@@ -264,6 +385,7 @@ window.joinRoom = async function() {
   updates[`rooms/${room}/playerOrder`] = [...(data.playerOrder || []), localState.playerId];
   await update(ref(db), updates);
 
+  saveSession();
   enterWaiting();
 };
 
@@ -487,7 +609,8 @@ window.layDownPhase = async function() {
   updateActionButtons();
   showMessage(`Phase ${phaseId} laid down! ✓`);
   const myName = localState.gameData?.players?.[localState.playerId]?.name || 'Someone';
-  await broadcastPopup(`🐾 ${myName} laid down Phase ${phaseId}!`, nextPopupImg());
+  const pm = nextPhaseMoment();
+  await broadcastPopup(`${myName} — ${pm.text}`, pm.img);
 };
 
 // ─────────────────────────────────────────────
@@ -507,6 +630,12 @@ window.hitMeld = async function(ownerId, groupIndex) {
 
   const card = localState.hand.find(c => c.id === selected[0]);
   if (!card) return;
+
+  // Must keep at least 1 card to discard — can't play last card to a meld
+  if (localState.hand.length <= 1) {
+    showMessage('Keep 1 card — you must discard to end your turn!');
+    return;
+  }
 
   // Deep clone melds and normalize any Firebase object-encoded arrays
   const meldsRaw  = JSON.parse(JSON.stringify(data.melds || {}));
@@ -584,7 +713,8 @@ window.discardSelected = async function() {
     nextIdx = (nextIdx + 1) % order.length;
     const skippedPlayer = data.players?.[order[nextIdx - 1 < 0 ? order.length - 1 : nextIdx - 1]];
     const myName = localState.gameData?.players?.[localState.playerId]?.name || 'Someone';
-    await broadcastPopup(`⊘ ${myName} played a Skip! 🏆`, 'images/tippy/tippy-cone.jpeg');
+    const sm = nextSkipMoment();
+    await broadcastPopup(`${myName}: ${sm.text}`, sm.img);
   }
 
   const nextPlayer   = order[nextIdx];
@@ -671,7 +801,8 @@ async function handleGoOut(data, baseUpdates) {
 
   // Broadcast a "went out" popup
   const myName = data.players?.[localState.playerId]?.name || 'Someone';
-  await broadcastPopup(`🏆 ${myName} went out!`, 'images/tippy/tippy-happy.jpeg');
+  const gm = nextGoOutMoment();
+  await broadcastPopup(`${myName} ${gm.text}`, gm.img);
 }
 
 // ─────────────────────────────────────────────
@@ -744,6 +875,9 @@ window.sortHandWildsFirst = function() {
   renderHand(localState);
 };
 
+// Check for a saved session on page load and show rejoin prompt if valid
+checkSavedSession();
+
 // ─────────────────────────────────────────────
 //  TOGGLE CARD SELECTION
 // ─────────────────────────────────────────────
@@ -808,6 +942,10 @@ function showEndScreen(data) {
 window.backToLobby = async function() {
   const roomCode = localState.roomCode;
   const isHost   = localState.isHost;
+
+  // Clear saved session — explicit leave means no rejoin needed
+  clearSession();
+  document.getElementById('rejoin-section').style.display = 'none';
 
   // Reset local state first
   localState.hand = [];

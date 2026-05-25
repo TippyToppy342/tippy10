@@ -72,11 +72,29 @@
       <input id="input-room" type="text" placeholder="e.g. TIPPY" maxlength="8" style="text-transform:uppercase" />
     </div>
 
+    <div class="field-group">
+      <label>Password <span class="optional-label">(optional)</span></label>
+      <input id="input-password" type="password" placeholder="Lock your room with a password" maxlength="20" />
+    </div>
+
     <div class="btn-row">
       <button class="btn btn-create" onclick="createRoom()">Create Room</button>
       <button class="btn btn-join"   onclick="joinRoom()">Join Room</button>
     </div>
     <p id="lobby-error" class="error-msg"></p>
+
+    <!-- Rejoin saved game -->
+    <div id="rejoin-section" class="rejoin-section" style="display:none">
+      <div class="divider"><span>or Resume Game</span></div>
+      <div class="rejoin-card">
+        <div class="rejoin-info">
+          <div id="rejoin-room-text" class="rejoin-room">Room: —</div>
+          <div id="rejoin-name-text" class="rejoin-name">…</div>
+        </div>
+        <button class="btn btn-join rejoin-btn" onclick="rejoinGame()">Rejoin 🐾</button>
+      </div>
+      <button class="btn-dismiss" onclick="dismissRejoin()">✕ Dismiss</button>
+    </div>
   </div>
 </div>
 

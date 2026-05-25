@@ -227,11 +227,17 @@ body {
 /* ── Table ── */
 .table-area {
   flex: 1; width: 100%;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 12px; overflow: hidden; padding: 8px;
+  display: flex; flex-direction: row;
+  align-items: flex-start;
+  gap: 10px; overflow: hidden; padding: 8px;
+  min-height: 0;
 }
-.pile-zone { display: flex; gap: 24px; align-items: center; }
+/* Piles run vertically on the left */
+.pile-zone {
+  display: flex; flex-direction: column;
+  gap: 28px; align-items: center;
+  flex-shrink: 0; padding: 6px 4px;
+}
 .pile { position: relative; cursor: pointer; user-select: none; }
 .pile-label { position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%); font-size: 11px; color: #667; white-space: nowrap; }
 
@@ -295,11 +301,17 @@ body {
 
 .discard-top-card { min-width: var(--card-w); min-height: var(--card-h); border-radius: var(--radius); }
 
-/* ── Meld area ── */
+/* ── Meld area — fills all remaining table space ── */
 .meld-area {
-  display: flex; flex-wrap: wrap; gap: 8px;
-  justify-content: center; padding: 4px;
-  max-height: 140px; overflow-y: auto;
+  flex: 1;
+  display: flex; flex-wrap: wrap; gap: 10px;
+  justify-content: flex-start;
+  align-content: flex-start;
+  padding: 4px;
+  overflow-y: auto;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.1) transparent;
 }
 .meld-group {
   background: rgba(255,255,255,.04);
@@ -309,6 +321,7 @@ body {
   display: flex; gap: 4px; flex-wrap: wrap;
   align-items: center;
   transition: border-color .2s, background .2s;
+  align-self: flex-start;
 }
 /* Green border + cursor when player can add to this meld */
 .meld-group.can-hit {
@@ -747,3 +760,47 @@ body {
   cursor: pointer; transition: background .15s, transform .1s;
 }
 .wild-choice-btn:hover { background: rgba(255,215,0,.3); transform: scale(1.05); }
+
+/* ── Optional label in field headings ── */
+.optional-label { color: #556; font-weight: 400; font-size: 10px; text-transform: none; letter-spacing: 0; }
+
+/* ── Rejoin saved game section ── */
+.rejoin-section { margin-top: 4px; }
+.rejoin-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(58,134,255,.1);
+  border: 1px solid rgba(58,134,255,.3);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+}
+.rejoin-info { flex: 1; min-width: 0; }
+.rejoin-room { font-weight: 800; font-size: 14px; color: var(--gold); letter-spacing: 1px; }
+.rejoin-name { font-size: 12px; color: #8899aa; margin-top: 2px; }
+.rejoin-btn  { flex-shrink: 0; flex: 0; padding: 9px 16px; font-size: 15px; }
+.btn-dismiss {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  color: #556;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: center;
+  padding: 2px;
+  font-family: 'Nunito', sans-serif;
+  transition: color .2s;
+}
+.btn-dismiss:hover { color: #889; }
+
+/* ── Pug tail spiral on wild cards ── */
+.pug-tail-svg {
+  position: absolute;
+  width: 68%; height: 68%;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0.8;
+}

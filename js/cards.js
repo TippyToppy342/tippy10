@@ -70,11 +70,12 @@ export function renderCard(card, opts = {}) {
   el.dataset.cardId = card.id;
 
   if (card.type === 'wild') {
-    // Show declared value if set (wild in a run with assigned number)
+    // Pug tail SVG — a curled spiral in the card background
+    const tail = `<svg class="pug-tail-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12,17 C7,17 5,14 5,11 C5,6 10,4 14,6 C17,7 18,11 16,14 C14,16 11,16 10,14 C9,13 10,11 12,11 C13,11 14,12 13,13" stroke="rgba(255,255,255,0.35)" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>`;
     const dv = card.declaredValue;
     el.innerHTML = dv
-      ? `<span class="corner tl">${dv}</span><span class="center-num">★</span><span class="corner br">${dv}</span>`
-      : `<span class="corner tl">W</span><span class="center-num">★</span><span class="corner br">W</span>`;
+      ? `${tail}<span class="corner tl">${dv}</span><span class="center-num">★</span><span class="corner br">${dv}</span>`
+      : `${tail}<span class="corner tl">W</span><span class="center-num">★</span><span class="corner br">W</span>`;
   } else if (card.type === 'skip') {
     el.innerHTML = `<span class="corner tl">⊘</span><span class="center-num">⊘</span><span class="corner br">⊘</span>`;
   } else {
