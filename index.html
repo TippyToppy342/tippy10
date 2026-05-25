@@ -5,10 +5,79 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Tippy 10</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;600;700;800&family=VT323&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+
+<!-- ══════════════════ SCANLINE OVERLAY (Tippy10 '95 theme) ══════════════════ -->
+<div id="scanline-overlay" class="scanline-overlay"></div>
+
+<!-- ══════════════════ SETTINGS GEAR BUTTON ══════════════════ -->
+<button id="settings-btn" class="settings-gear-btn" onclick="toggleSettingsPanel()" title="Options">⚙</button>
+
+<!-- ══════════════════ SETTINGS PANEL ══════════════════ -->
+<div id="settings-overlay" class="settings-overlay" onclick="closeSettingsPanelIfBg(event)">
+  <div class="settings-panel">
+    <div class="settings-header">
+      <span class="settings-title">OPTIONS</span>
+      <button class="settings-close-btn" onclick="toggleSettingsPanel()">✕</button>
+    </div>
+
+    <div class="settings-section" id="theme-section">
+      <div class="settings-section-label">
+        THEME
+        <span id="theme-host-note" class="theme-host-note" style="display:none">🔒 Host only</span>
+      </div>
+      <div class="theme-options">
+        <label class="theme-option" id="theme-opt-standard">
+          <input type="radio" name="theme" value="standard" onchange="applyTheme('standard')" />
+          <span class="theme-name">Standard Tippy10</span>
+          <span class="theme-desc">Warm, vibrant, full Tippy vibes 🐾</span>
+        </label>
+        <label class="theme-option" id="theme-opt-95">
+          <input type="radio" name="theme" value="95" onchange="applyTheme('95')" />
+          <span class="theme-name">Tippy10 '95</span>
+          <span class="theme-desc">Lumon Industries terminal. Efficiency is paramount.</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-label">DISPLAY</div>
+      <label class="settings-toggle">
+        <input type="checkbox" id="opt-compact" onchange="applyOption('compact', this.checked)" />
+        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span class="toggle-label">Compact Hand <span class="toggle-hint">smaller cards</span></span>
+      </label>
+      <label class="settings-toggle">
+        <input type="checkbox" id="opt-colorblind" onchange="applyOption('colorblind', this.checked)" />
+        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span class="toggle-label">Color-blind Mode <span class="toggle-hint">adds letter labels to cards</span></span>
+      </label>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-label">PERFORMANCE</div>
+      <label class="settings-toggle">
+        <input type="checkbox" id="opt-noanimations" onchange="applyOption('noanimations', this.checked)" />
+        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span class="toggle-label">Reduce Animations <span class="toggle-hint">no confetti, fewer effects</span></span>
+      </label>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-label">GAME</div>
+      <label class="settings-toggle">
+        <input type="checkbox" id="opt-showcardcount" onchange="applyOption('showcardcount', this.checked)" />
+        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span class="toggle-label">Show Opponent Card Count <span class="toggle-hint">always visible</span></span>
+      </label>
+    </div>
+
+    <div class="settings-footer">Tippy10 v1.0 🐾</div>
+  </div>
+</div>
 
 <!-- ══════════════════ LOBBY ══════════════════ -->
 <div id="screen-lobby" class="screen active">
@@ -230,5 +299,6 @@
 <script type="module" src="js/cards.js"></script>
 <script type="module" src="js/game.js"></script>
 <script type="module" src="js/ui.js"></script>
+<script src="js/settings.js"></script>
 </body>
 </html>

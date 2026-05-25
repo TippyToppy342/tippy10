@@ -426,6 +426,11 @@ function handleRoomUpdate(data) {
     showTippyPopup(data.popup.text, data.popup.img);
   }
 
+  // ── Theme sync (host-controlled, reflected to all players) ──
+  if (data.theme && window.applyThemeFromFirebase) {
+    window.applyThemeFromFirebase(data.theme);
+  }
+
   if (data.status === 'waiting') {
     updateWaitingUI(data);
   } else if (data.status === 'playing') {
@@ -515,6 +520,7 @@ window.startGame = async function() {
     [`rooms/${localState.roomCode}/turnPhase`]:   'draw',
     [`rooms/${localState.roomCode}/melds`]:        {},
     [`rooms/${localState.roomCode}/handNum`]:      1,
+    [`rooms/${localState.roomCode}/theme`]:        window.getSettings?.()?.theme || 'standard',
   });
 };
 
@@ -873,6 +879,21 @@ window.sortHandWildsFirst = function() {
     return a.number - b.number;
   });
   renderHand(localState);
+};
+
+// ─────────────────────────────────────────────
+//  HOST HELPERS — exposed for settings.js
+// ─────────────────────────────────────────────
+window.getIsHost = function() { return localState.isHost; };
+window.getInGame = function() {
+  return !!(localState.roomCode && localState.gameData?.status === 'playing');
+};
+/** Host writes theme to Firebase; all players receive it via handleRoomUpdate */
+window.setRoomTheme = async function(theme) {
+  if (!localState.roomCode || !localState.isHost) return;
+  try {
+    await update(ref(db), { [`rooms/${localState.roomCode}/theme`]: theme });
+  } catch(e) { /* non-critical */ }
 };
 
 // Check for a saved session on page load and show rejoin prompt if valid
