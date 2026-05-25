@@ -249,6 +249,9 @@ export function renderBoard(data, localState) {
     ind.classList.remove('my-turn');
   }
 
+  // Scoreboard strip
+  renderScoreboard(data, myId);
+
   // Opponents
   renderOpponents(data, myId);
 
@@ -265,6 +268,31 @@ export function renderBoard(data, localState) {
   // My hand
   renderHand(localState);
   updateActionButtons();
+}
+
+// ── Scoreboard strip ──
+function renderScoreboard(data, myId) {
+  const bar = document.getElementById('scoreboard-bar');
+  if (!bar) return;
+  const order  = firebaseToArray(data.playerOrder || []);
+  // Sort by phase desc, then score asc (leader first)
+  const sorted = [...order].sort((a, b) => {
+    const pa = data.players[a], pb = data.players[b];
+    const phA = pa?.phase || 1, phB = pb?.phase || 1;
+    if (phB !== phA) return phB - phA;
+    return (pa?.score || 0) - (pb?.score || 0);
+  });
+  bar.innerHTML = sorted.map((pid, rank) => {
+    const p     = data.players[pid];
+    if (!p) return '';
+    const phase = Math.min(p.phase || 1, 10);
+    const isMe  = pid === myId;
+    return `<span class="sb-chip${isMe ? ' sb-me' : ''}${rank === 0 ? ' sb-lead' : ''}">
+      ${p.icon || '🎮'} ${p.name}
+      <span class="sb-phase">P${phase}</span>
+      <span class="sb-score">${p.score || 0}pt</span>
+    </span>`;
+  }).join('');
 }
 
 // ── Opponents ──

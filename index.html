@@ -109,6 +109,9 @@
     <div class="phase-badge">Phase: <span id="hud-phase">1</span></div>
   </div>
 
+  <!-- Scoreboard strip -->
+  <div id="scoreboard-bar" class="scoreboard-bar"></div>
+
   <!-- Opponent panels -->
   <div id="opponents-area" class="opponents-area"></div>
 
@@ -166,6 +169,21 @@
     <img src="images/tippy/tippy-cone.jpeg" class="tippy-cone-photo" alt="Tippy in cone" />
     <p class="tippy-cone-label">Cone of Shame for last place 😂</p>
     <button class="btn btn-create" onclick="backToLobby()">Play Again 🐾</button>
+  </div>
+</div>
+
+<!-- ══════════════════ WILD DECLARATION MODAL ══════════════════ -->
+<div id="wild-modal" class="wild-modal-overlay">
+  <div class="wild-modal-box">
+    <div class="wild-modal-title">🃏 Declare Wild</div>
+    <p class="wild-modal-hint" id="wild-modal-hint">Where does the wild go in your run?</p>
+    <div class="wild-modal-run" id="wild-modal-run"></div>
+    <div class="wild-modal-shift-controls" id="wild-modal-shift-controls">
+      <button class="btn btn-sm" id="wild-shift-left"  onclick="shiftWildRun(-1)">◀ Shift left</button>
+      <button class="btn btn-sm" id="wild-shift-right" onclick="shiftWildRun(1)">Shift right ▶</button>
+    </div>
+    <div class="wild-modal-choice-controls" id="wild-modal-choice-controls" style="display:none"></div>
+    <button id="wild-modal-confirm" class="btn btn-create" onclick="confirmWildModal()" style="width:100%;margin-top:4px">Confirm ✓</button>
   </div>
 </div>
 

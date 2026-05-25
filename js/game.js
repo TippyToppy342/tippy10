@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════
 
 import { db } from './firebase-config.js';
-import { ref, set, get, update, onValue } from
+import { ref, set, get, update, remove, onValue } from
   'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 import { buildDeck, shuffle, cardPoints, validatePhase, canHit, firebaseToArray, PHASES } from './cards.js';
 import { renderBoard, renderHand, showMessage, showScreen, showTippyPopup, showRoundEndScreen } from './ui.js';
@@ -39,6 +39,140 @@ async function broadcastPopup(text, img) {
       [`rooms/${localState.roomCode}/popup`]: { text, img: img || nextPopupImg(), ts: Date.now() }
     });
   } catch(e) { /* non-critical */ }
+}
+
+// ── Wild declaration modal state ──
+let _wildResolve            = null;
+let _wildModalGroup         = null;
+let _wildModalPartCount     = 0;
+let _wildModalPossibleStarts = [];
+let _wildModalCurrentStart  = 1;
+
+/** All valid starting numbers for a run given the real cards in the group */
+function getRunPossibleStarts(group, partCount) {
+  const reals = group.filter(c => c.type !== 'wild').sort((a,b) => a.number - b.number);
+  if (!reals.length) return Array.from({length: 13 - partCount}, (_, i) => i + 1);
+  const min = reals[0].number, max = reals[reals.length-1].number;
+  const out = [];
+  for (let s = Math.max(1, max - partCount + 1); s <= Math.min(min, 13 - partCount); s++) out.push(s);
+  return out;
+}
+
+/** Build a fully-ordered run starting at startNum, assigning declaredValue to wilds */
+function buildRunWithStart(group, startNum, partCount) {
+  const wilds = group.filter(c => c.type === 'wild');
+  const reals = group.filter(c => c.type !== 'wild');
+  const result = new Array(partCount).fill(null);
+  for (const r of reals) { const idx = r.number - startNum; if (idx >= 0 && idx < partCount) result[idx] = r; }
+  let wi = 0;
+  for (let i = 0; i < partCount && wi < wilds.length; i++) {
+    if (!result[i]) result[i] = { ...wilds[wi++], declaredValue: startNum + i };
+  }
+  return result.filter(Boolean);
+}
+
+/** Show the shift modal and return a Promise<startNum> */
+function showWildShiftModal(group, partCount, possibleStarts) {
+  return new Promise(resolve => {
+    _wildResolve             = resolve;
+    _wildModalGroup          = group;
+    _wildModalPartCount      = partCount;
+    _wildModalPossibleStarts = possibleStarts;
+    _wildModalCurrentStart   = possibleStarts[Math.floor(possibleStarts.length / 2)];
+    // Render shift UI
+    document.getElementById('wild-modal-shift-controls').style.display = 'flex';
+    document.getElementById('wild-modal-choice-controls').style.display = 'none';
+    document.getElementById('wild-modal-confirm').style.display = '';
+    _renderWildModalRun();
+    _updateWildShiftButtons();
+    document.getElementById('wild-modal').classList.add('show');
+  });
+}
+
+/** Show a simple 2-option choice modal (for hit-meld wild) and return Promise<value> */
+function showWildChoiceModal(options) {
+  return new Promise(resolve => {
+    _wildResolve = resolve;
+    document.getElementById('wild-modal-hint').textContent = 'Which end does the wild extend?';
+    document.getElementById('wild-modal-run').innerHTML = '';
+    document.getElementById('wild-modal-shift-controls').style.display = 'none';
+    document.getElementById('wild-modal-confirm').style.display = 'none';
+    const choiceEl = document.getElementById('wild-modal-choice-controls');
+    choiceEl.style.display = 'flex';
+    choiceEl.innerHTML = '';
+    options.forEach(num => {
+      const btn = document.createElement('button');
+      btn.className = 'wild-choice-btn';
+      btn.textContent = num;
+      btn.onclick = () => { document.getElementById('wild-modal').classList.remove('show'); resolve(num); };
+      choiceEl.appendChild(btn);
+    });
+    document.getElementById('wild-modal').classList.add('show');
+  });
+}
+
+function _renderWildModalRun() {
+  const runCards = buildRunWithStart(_wildModalGroup, _wildModalCurrentStart, _wildModalPartCount);
+  const container = document.getElementById('wild-modal-run');
+  const hint      = document.getElementById('wild-modal-hint');
+  hint.textContent = `Run of ${_wildModalPartCount}: ${_wildModalCurrentStart} → ${_wildModalCurrentStart + _wildModalPartCount - 1}`;
+  container.innerHTML = '';
+  runCards.forEach(card => {
+    const { renderCard } = window._cardRenderFn || {};
+    const el = document.createElement('div');
+    el.className = `card card-${card.color}`;
+    el.style.cssText = 'width:52px;height:74px;position:relative;flex-shrink:0;cursor:default;';
+    if (card.type === 'wild' && card.declaredValue) {
+      el.innerHTML = `<span class="corner tl">${card.declaredValue}</span><span class="center-num">★</span><span class="corner br">${card.declaredValue}</span>`;
+    } else if (card.type === 'wild') {
+      el.innerHTML = `<span class="corner tl">W</span><span class="center-num">★</span><span class="corner br">W</span>`;
+    } else {
+      el.innerHTML = `<span class="corner tl">${card.number}</span><span class="center-num">${card.number}</span><span class="corner br">${card.number}</span>`;
+    }
+    container.appendChild(el);
+  });
+}
+
+function _updateWildShiftButtons() {
+  const min = _wildModalPossibleStarts[0];
+  const max = _wildModalPossibleStarts[_wildModalPossibleStarts.length - 1];
+  const l = document.getElementById('wild-shift-left');
+  const r = document.getElementById('wild-shift-right');
+  if (l) l.disabled = _wildModalCurrentStart <= min;
+  if (r) r.disabled = _wildModalCurrentStart >= max;
+}
+
+window.shiftWildRun = function(dir) {
+  const min = _wildModalPossibleStarts[0];
+  const max = _wildModalPossibleStarts[_wildModalPossibleStarts.length - 1];
+  _wildModalCurrentStart = Math.max(min, Math.min(max, _wildModalCurrentStart + dir));
+  _renderWildModalRun();
+  _updateWildShiftButtons();
+};
+
+window.confirmWildModal = function() {
+  document.getElementById('wild-modal').classList.remove('show');
+  if (_wildResolve) _wildResolve(_wildModalCurrentStart);
+};
+
+/** For each run group in the phase result, resolve wild declarations */
+async function declareWildsIfNeeded(resultGroups, phaseObj) {
+  const out = [];
+  for (let i = 0; i < resultGroups.length; i++) {
+    const group = resultGroups[i];
+    const part  = phaseObj.parts[i];
+    if (part.type !== 'run') { out.push(group); continue; }
+    const wilds = group.filter(c => c.type === 'wild');
+    if (!wilds.length) { out.push(group); continue; }
+    const possibleStarts = getRunPossibleStarts(group, part.count);
+    if (possibleStarts.length === 1) {
+      out.push(buildRunWithStart(group, possibleStarts[0], part.count));
+    } else {
+      const chosen = await showWildShiftModal(group, part.count, possibleStarts);
+      out.push(buildRunWithStart(group, chosen, part.count));
+    }
+  }
+  return out;
 }
 
 // ── Sort wilds into correct position in a run ──
@@ -176,9 +310,25 @@ function handleRoomUpdate(data) {
     if (!document.getElementById('screen-game').classList.contains('active')) {
       showScreen('game');
     }
-    // Sync hand from Firebase, normalizing in case Firebase converted array → object
+    // Sync hand from Firebase only when the set of cards actually changes,
+    // so local sort/drag order is preserved when other players take actions.
     const myData = data.players?.[localState.playerId];
-    if (myData?.hand) localState.hand = firebaseToArray(myData.hand);
+    if (myData?.hand) {
+      const newHand    = firebaseToArray(myData.hand);
+      const currIdKey  = localState.hand.map(c => c.id).sort().join(',');
+      const newIdKey   = newHand.map(c => c.id).sort().join(',');
+      if (currIdKey !== newIdKey) {
+        if (localState.hand.length === 0) {
+          localState.hand = newHand;
+        } else {
+          // Preserve local order; keep existing cards in place, append new ones
+          const newIdSet = new Set(newHand.map(c => c.id));
+          const kept  = localState.hand.filter(c => newIdSet.has(c.id));
+          const added = newHand.filter(c => !localState.hand.some(h => h.id === c.id));
+          localState.hand = [...kept, ...added];
+        }
+      }
+    }
     renderBoard(data, localState);
   } else if (data.status === 'round_end') {
     showRoundEndScreen(data, localState);
@@ -315,13 +465,11 @@ window.layDownPhase = async function() {
   localState.hand = newHand;
   localState.selectedCards = [];
 
-  // Sort run groups so wilds land in the correct gap positions
-  const sortedResult = result.map((group, i) =>
-    phaseObj.parts[i].type === 'run' ? sortRunWithWilds(group) : group
-  );
+  // Resolve wild declarations (shows modal if ambiguous) and sort runs
+  const resolvedResult = await declareWildsIfNeeded(result, phaseObj);
 
   const melds = data.melds || {};
-  melds[localState.playerId] = sortedResult.map((group, i) => ({
+  melds[localState.playerId] = resolvedResult.map((group, i) => ({
     ownerId:   localState.playerId,
     partIndex: i,
     partType:  phaseObj.parts[i].type,
@@ -373,7 +521,30 @@ window.hitMeld = async function(ownerId, groupIndex) {
     return;
   }
 
-  group.cards.push(card);
+  // Wild hitting a run: declare which end it extends
+  let cardToAdd = card;
+  if (card.type === 'wild' && group.partType === 'run') {
+    const allVals = group.cards.map(c => c.declaredValue ?? c.number).sort((a,b) => a-b);
+    const runMin = allVals[0], runMax = allVals[allVals.length - 1];
+    const canLow  = runMin - 1 >= 1;
+    const canHigh = runMax + 1 <= 12;
+    let declaredValue;
+    if (canLow && canHigh) {
+      declaredValue = await showWildChoiceModal([runMin - 1, runMax + 1]);
+    } else if (canLow) {
+      declaredValue = runMin - 1;
+    } else {
+      declaredValue = runMax + 1;
+    }
+    cardToAdd = { ...card, declaredValue };
+  }
+
+  group.cards.push(cardToAdd);
+
+  // Re-sort run so the new card lands in the right position
+  if (group.partType === 'run') {
+    group.cards.sort((a, b) => (a.declaredValue ?? a.number) - (b.declaredValue ?? b.number));
+  }
   groups[groupIndex] = group;
   meldsRaw[ownerId]  = groups;
 
@@ -523,15 +694,18 @@ window.startNextRound = async function() {
   const drawPile   = deck.slice(pos);
   const topDiscard = drawPile.pop();
 
+  const newHandNum = (data.handNum || 1) + 1;
+  const startIdx   = (newHandNum - 1) % order.length;   // rotate who goes first
+
   await update(ref(db), {
     ...updates,
     [`rooms/${localState.roomCode}/status`]:       'playing',
     [`rooms/${localState.roomCode}/drawPile`]:     drawPile,
     [`rooms/${localState.roomCode}/discardPile`]:  [topDiscard],
-    [`rooms/${localState.roomCode}/currentTurn`]:  order[0],
+    [`rooms/${localState.roomCode}/currentTurn`]:  order[startIdx],
     [`rooms/${localState.roomCode}/turnPhase`]:    'draw',
     [`rooms/${localState.roomCode}/melds`]:        {},
-    [`rooms/${localState.roomCode}/handNum`]:      (data.handNum || 1) + 1,
+    [`rooms/${localState.roomCode}/handNum`]:      newHandNum,
     [`rooms/${localState.roomCode}/roundSummary`]: null,
   });
 };
@@ -631,10 +805,22 @@ function showEndScreen(data) {
   });
 }
 
-window.backToLobby = function() {
+window.backToLobby = async function() {
+  const roomCode = localState.roomCode;
+  const isHost   = localState.isHost;
+
+  // Reset local state first
   localState.hand = [];
   localState.selectedCards = [];
   localState.gameData = null;
-  if (_unsub) _unsub();
+  localState.roomCode = null;
+  localState.isHost = false;
+  if (_unsub) { _unsub(); _unsub = null; }
+
+  // Host deletes the room so the code can be reused
+  if (isHost && roomCode) {
+    try { await remove(ref(db, `rooms/${roomCode}`)); } catch(e) { /* non-critical */ }
+  }
+
   showScreen('lobby');
 };

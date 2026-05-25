@@ -70,7 +70,11 @@ export function renderCard(card, opts = {}) {
   el.dataset.cardId = card.id;
 
   if (card.type === 'wild') {
-    el.innerHTML = `<span class="corner tl">W</span><span class="center-num">★</span><span class="corner br">W</span>`;
+    // Show declared value if set (wild in a run with assigned number)
+    const dv = card.declaredValue;
+    el.innerHTML = dv
+      ? `<span class="corner tl">${dv}</span><span class="center-num">★</span><span class="corner br">${dv}</span>`
+      : `<span class="corner tl">W</span><span class="center-num">★</span><span class="corner br">W</span>`;
   } else if (card.type === 'skip') {
     el.innerHTML = `<span class="corner tl">⊘</span><span class="center-num">⊘</span><span class="corner br">⊘</span>`;
   } else {
@@ -134,17 +138,24 @@ function combinations(arr, k) {
 }
 
 export function canHit(card, meldGroup, part) {
-  if (card.type === 'wild') return true;
   if (part.type === 'set') {
+    if (card.type === 'wild') return true;
     const nums = meldGroup.filter(c=>c.type!=='wild').map(c=>c.number);
     return nums.includes(card.number) || nums.length === 0;
   }
   if (part.type === 'run') {
-    const nums = meldGroup.filter(c=>c.type!=='wild').map(c=>c.number).sort((a,b)=>a-b);
-    if (!nums.length) return true;
-    return card.number === nums[0]-1 || card.number === nums[nums.length-1]+1;
+    if (card.type === 'wild') {
+      // Wild can extend the run at either end (if there's room in 1-12)
+      const allVals = meldGroup.map(c => c.declaredValue ?? c.number).sort((a,b)=>a-b);
+      return allVals[0] > 1 || allVals[allVals.length-1] < 12;
+    }
+    // Use declaredValue for wilds already in the meld
+    const allVals = meldGroup.map(c => c.declaredValue ?? c.number).sort((a,b)=>a-b);
+    if (!allVals.length) return true;
+    return card.number === allVals[0]-1 || card.number === allVals[allVals.length-1]+1;
   }
   if (part.type === 'color') {
+    if (card.type === 'wild') return true;
     const colors = meldGroup.filter(c=>c.type!=='wild').map(c=>c.color);
     return colors.includes(card.color) || colors.length === 0;
   }
