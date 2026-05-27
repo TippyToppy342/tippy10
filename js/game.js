@@ -1137,8 +1137,7 @@ function unsubscribeChat() {
   _chatOpen = false;
   const listEl = document.getElementById('chat-messages');
   if (listEl) listEl.innerHTML = '';
-  const badge = document.getElementById('chat-unread-badge');
-  if (badge) badge.style.display = 'none';
+  document.querySelectorAll('.chat-unread-badge').forEach(b => { b.style.display = 'none'; });
 }
 
 function renderChat() {
@@ -1166,26 +1165,33 @@ function renderChat() {
 
   if (nearBottom || _chatOpen) listEl.scrollTop = listEl.scrollHeight;
 
-  // Update unread badge based on _chatLastSeen
-  const badge = document.getElementById('chat-unread-badge');
-  if (!badge) return;
+  // Update unread badge(s) — there are two: one on the floating FAB
+  // and one on the inline action-bar button. Both use class .chat-unread-badge.
+  const badges = document.querySelectorAll('.chat-unread-badge');
+  if (!badges.length) return;
+
   if (_chatOpen) {
     _chatLastSeen = Date.now();
-    badge.style.display = 'none';
+    badges.forEach(b => { b.style.display = 'none'; });
     return;
   }
+
   const unread = _chatMessages.filter(m =>
     (m.ts || 0) > _chatLastSeen && m.playerId !== localState.playerId
   ).length;
+
   if (unread > 0) {
-    badge.textContent = unread > 9 ? '9+' : String(unread);
-    badge.style.display = '';
-    // Re-trigger pulse animation
-    badge.classList.remove('chat-pulse');
-    void badge.offsetWidth;
-    badge.classList.add('chat-pulse');
+    const label = unread > 9 ? '9+' : String(unread);
+    badges.forEach(b => {
+      b.textContent = label;
+      b.style.display = '';
+      // Re-trigger pulse animation
+      b.classList.remove('chat-pulse');
+      void b.offsetWidth;
+      b.classList.add('chat-pulse');
+    });
   } else {
-    badge.style.display = 'none';
+    badges.forEach(b => { b.style.display = 'none'; });
   }
 }
 
@@ -1213,8 +1219,7 @@ window.toggleChat = function() {
   panel.classList.toggle('open', _chatOpen);
   if (_chatOpen) {
     _chatLastSeen = Date.now();
-    const badge = document.getElementById('chat-unread-badge');
-    if (badge) badge.style.display = 'none';
+    document.querySelectorAll('.chat-unread-badge').forEach(b => { b.style.display = 'none'; });
     const listEl = document.getElementById('chat-messages');
     if (listEl) listEl.scrollTop = listEl.scrollHeight;
     // Focus the input shortly after opening

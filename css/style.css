@@ -1527,16 +1527,25 @@ body.theme-95 .wild-tippy-img {
 }
 
 /* ══════════════════════════════════════════════
-   CHAT WIDGET — floating, minimizable
+   CHAT WIDGET — inline button on game screen,
+   floating bubble on waiting/round-end/end screens
 ════════════════════════════════════════════════ */
 .chat-root {
   position: fixed;
-  left: 14px;
+  right: 14px;
   bottom: 14px;
   z-index: 9000;
   pointer-events: none; /* children re-enable */
 }
 .chat-root > * { pointer-events: auto; }
+
+/* On the game screen the chat trigger lives inside the action-bar,
+   so the floating bubble is redundant and would obscure the hand. */
+#screen-game.active ~ #chat-root .chat-fab { display: none; }
+/* The inline button only makes sense on the game screen; hide it elsewhere
+   so the floating FAB is the only trigger in the waiting / round-end / end screens. */
+.chat-inline-btn { display: none; }
+#screen-game.active .chat-inline-btn { display: inline-flex; }
 
 /* ── Minimized floating action button ── */
 .chat-fab {
@@ -1589,7 +1598,7 @@ body.theme-95 .wild-tippy-img {
 .chat-panel {
   display: none;
   position: absolute;
-  left: 0;
+  right: 0;
   bottom: 0;
   width: 300px;
   max-width: calc(100vw - 28px);
@@ -1718,6 +1727,40 @@ body.theme-95 .wild-tippy-img {
 .chat-send-btn:hover { filter: brightness(1.08); }
 .chat-send-btn:active { transform: scale(.96); }
 
+/* ── Inline chat button (lives in the action-bar on the game screen) ── */
+.chat-inline-btn {
+  position: relative;             /* anchor for the unread badge */
+  border-color: rgba(255,215,0,.4);
+  color: var(--gold);
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 38px;
+}
+.chat-inline-btn:hover { background: rgba(255,215,0,.12); }
+.chat-unread-badge.inline-badge {
+  /* Smaller, snug to the top-right of the inline button */
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 800;
+  background: #E63946;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--bg);
+  box-shadow: 0 1px 4px rgba(0,0,0,.4);
+}
+.chat-unread-badge.inline-badge.chat-pulse {
+  animation: chatPulse .9s ease-out;
+}
+
 /* ── Tippy10 '95 theme overrides for chat ── */
 body.theme-95 .chat-fab {
   background: #000;
@@ -1772,6 +1815,17 @@ body.theme-95 .chat-send-btn {
   border-radius: 0;
 }
 body.theme-95 .chat-empty-hint { color: #005511; }
+body.theme-95 .chat-inline-btn {
+  border-color: #00ff41;
+  color: #00ff41;
+}
+body.theme-95 .chat-inline-btn:hover { background: rgba(0,255,65,.1); }
+body.theme-95 .chat-unread-badge.inline-badge {
+  background: #00ff41;
+  color: #000;
+  border-color: #000;
+  border-radius: 0;
+}
 
 /* ── Reduce-animations option ── */
 body.opt-noanimations .chat-fab { transition: none; }
