@@ -48,8 +48,8 @@ body {
   background: rgba(21,34,56,.95);
   border: 1px solid rgba(255,255,255,.1);
   border-radius: 20px;
-  padding: 36px 44px;
-  width: 420px;
+  padding: 20px 28px;
+  width: 440px;
   max-width: 95vw;
   max-height: 95dvh;
   overflow-y: auto;
@@ -57,55 +57,70 @@ body {
 }
 .logo {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 64px;
+  font-size: 44px;
   letter-spacing: 4px;
   color: #fff;
   line-height: 1;
 }
 .logo span { color: var(--gold); }
-.tagline { color: #8899aa; margin-bottom: 20px; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; }
+.tagline { color: #8899aa; margin-bottom: 10px; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; }
 
-.field-group { margin-bottom: 14px; }
-.field-group label { display: block; font-size: 12px; font-weight: 700; color: #8899aa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+.field-group { margin-bottom: 8px; }
+.field-group label { display: block; font-size: 11px; font-weight: 700; color: #8899aa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; }
 .field-group input {
-  width: 100%; padding: 10px 14px;
+  width: 100%; padding: 8px 12px;
   background: rgba(255,255,255,.06);
   border: 1px solid rgba(255,255,255,.12);
   border-radius: 8px; color: #fff;
-  font-family: 'Nunito', sans-serif; font-size: 15px;
+  font-family: 'Nunito', sans-serif; font-size: 14px;
   outline: none; transition: border-color .2s;
 }
 .field-group input:focus { border-color: var(--gold); }
 
-/* Icon picker */
-.icon-picker {
+/* Side-by-side fields (e.g. Room Code + Password) */
+.field-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  gap: 10px;
 }
+.field-row .field-group { flex: 1; min-width: 0; }
+
+/* Icon picker — compact grid with internal scroll fallback */
+.icon-picker {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 4px;
+  max-height: 96px;
+  overflow-y: auto;
+  padding: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.15) transparent;
+}
+.icon-picker::-webkit-scrollbar { width: 6px; }
+.icon-picker::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 3px; }
 .icon-option {
-  font-size: 26px;
+  font-size: 20px;
   cursor: pointer;
-  padding: 5px 6px;
-  border-radius: 8px;
+  padding: 3px;
+  border-radius: 6px;
   border: 2px solid transparent;
-  line-height: 1;
+  text-align: center;
+  line-height: 1.1;
   transition: transform .15s, border-color .15s, background .15s;
   user-select: none;
 }
-.icon-option:hover { transform: scale(1.2); background: rgba(255,255,255,.08); }
+.icon-option:hover { transform: scale(1.15); background: rgba(255,255,255,.08); }
 .icon-option.selected {
   border-color: var(--gold);
   background: rgba(255,215,0,.15);
-  transform: scale(1.1);
+  transform: scale(1.08);
 }
 
-.divider { text-align: center; color: #445; margin: 16px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; position: relative; }
+.divider { text-align: center; color: #445; margin: 10px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; position: relative; }
 .divider::before, .divider::after { content: ''; position: absolute; top: 50%; width: 30%; height: 1px; background: rgba(255,255,255,.1); }
 .divider::before { left: 0; }
 .divider::after { right: 0; }
 
-.btn-row { display: flex; gap: 10px; margin-top: 20px; }
+.btn-row { display: flex; gap: 10px; margin-top: 12px; }
 .btn {
   flex: 1; padding: 12px 18px;
   border: none; border-radius: 10px;
@@ -117,7 +132,10 @@ body {
 .btn:active { transform: translateY(0); }
 .btn-create { background: var(--gold); color: #111; }
 .btn-join   { background: var(--blue); color: #fff; }
-.error-msg  { color: var(--red); font-size: 13px; margin-top: 10px; min-height: 18px; }
+.error-msg  { color: var(--red); font-size: 13px; margin-top: 6px; min-height: 18px; }
+
+/* Lobby-only button sizing — tighter than the global .btn so the card fits without scroll */
+.lobby-card .btn { padding: 10px 14px; font-size: 16px; border-radius: 8px; }
 
 /* ═══════════════════════════════════════════
    WAITING ROOM
@@ -618,11 +636,11 @@ body.theme-95 .btn-sm.sort-active {
 .tippy-lobby-wrap {
   display: flex;
   justify-content: center;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
 }
 .tippy-lobby-avatar {
-  width: 100px;
-  height: 100px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   object-fit: cover;
   object-position: center top;
