@@ -49,6 +49,7 @@ const GALLERY = [
 ];
 let _galleryIdx = 0;
 let _galleryTimer = null;
+let _galleryPending = null;
 
 function startGallery() {
   _galleryIdx = 0;
@@ -61,17 +62,37 @@ function startGallery() {
 
 function stopGallery() {
   if (_galleryTimer) { clearInterval(_galleryTimer); _galleryTimer = null; }
+  // Cancel any in-flight preload so stale onload doesn't fire after stop
+  if (_galleryPending) { _galleryPending.onload = null; _galleryPending = null; }
 }
 
 function updateGallery() {
   const img = document.getElementById('gallery-img');
   const cap = document.getElementById('gallery-caption');
   if (!img || !cap) return;
-  img.classList.remove('gallery-fade-in');
-  void img.offsetWidth; // force reflow
-  img.src = GALLERY[_galleryIdx].src;
-  cap.textContent = GALLERY[_galleryIdx].caption;
-  img.classList.add('gallery-fade-in');
+  const { src, caption } = GALLERY[_galleryIdx];
+  // Cancel any previous in-flight preload
+  if (_galleryPending) { _galleryPending.onload = null; _galleryPending = null; }
+  // Preload the new image; only swap src + caption together once it's ready
+  const preload = new Image();
+  _galleryPending = preload;
+  preload.onload = () => {
+    if (_galleryPending !== preload) return; // superseded by a later call
+    _galleryPending = null;
+    img.classList.remove('gallery-fade-in');
+    void img.offsetWidth; // force reflow for CSS transition
+    img.src = src;
+    cap.textContent = caption;
+    img.classList.add('gallery-fade-in');
+  };
+  preload.onerror = () => {
+    // Still update on error so the slideshow doesn't stall
+    if (_galleryPending !== preload) return;
+    _galleryPending = null;
+    img.src = src;
+    cap.textContent = caption;
+  };
+  preload.src = src;
 }
 
 // ── Tippy popup (shown to all players via Firebase broadcast) ──

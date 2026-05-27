@@ -2,8 +2,8 @@
 //  game.js  — Firebase-backed game state
 // ═══════════════════════════════════════════
 
-import { db } from './firebase-config.js';
-import { ref, set, get, update, remove, onValue } from
+import { db, authReady } from './firebase-config.js';
+import { ref, set, get, update, remove, onValue, push } from
   'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 import { buildDeck, shuffle, cardPoints, validatePhase, canHit, firebaseToArray, PHASES } from './cards.js';
 import { renderBoard, renderHand, showMessage, showScreen, showTippyPopup, showRoundEndScreen } from './ui.js';
@@ -266,6 +266,9 @@ async function checkSavedSession() {
   try { session = JSON.parse(raw); } catch { clearSession(); return; }
   if (!session.roomCode || !session.playerId) { clearSession(); return; }
 
+  // Wait for anonymous sign-in before hitting the DB
+  await authReady;
+
   // Verify the room + player still exist in Firebase
   try {
     const snap = await get(ref(db, `rooms/${session.roomCode}/players/${session.playerId}`));
@@ -284,6 +287,9 @@ window.rejoinGame = async function() {
   if (!raw) return;
   let session;
   try { session = JSON.parse(raw); } catch { clearSession(); return; }
+
+  // Wait for anonymous sign-in before hitting the DB
+  await authReady;
 
   // Verify room still exists
   let snap;
@@ -332,6 +338,9 @@ window.createRoom = async function() {
   const password = document.getElementById('input-password').value.trim();
   if (!name) { setLobbyError('Enter your name'); return; }
 
+  // Wait for anonymous sign-in before hitting the DB
+  await authReady;
+
   localState.playerId   = 'p_' + Math.random().toString(36).slice(2,8);
   localState.playerName = name;
   localState.roomCode   = room;
@@ -363,6 +372,9 @@ window.joinRoom = async function() {
   const password = document.getElementById('input-password').value.trim();
   if (!name) { setLobbyError('Enter your name'); return; }
   if (!room) { setLobbyError('Enter a room code'); return; }
+
+  // Wait for anonymous sign-in before hitting the DB
+  await authReady;
 
   const roomRef = ref(db, `rooms/${room}`);
   const snap = await get(roomRef);
@@ -420,6 +432,9 @@ function subscribeRoom() {
     localState.gameData = data;
     handleRoomUpdate(data);
   });
+  // Start chat listener + show the chat widget for this room
+  subscribeChat();
+  showChatWidget();
 }
 
 function handleRoomUpdate(data) {
@@ -586,6 +601,18 @@ window.layDownPhase = async function() {
   const phaseObj = PHASES[phaseId - 1];
 
   const selectedCardObjs = selected.map(id => localState.hand.find(c => c.id === id)).filter(Boolean);
+
+  // ── Guard: require the exact number of cards for the phase ──
+  // Without this, selecting MORE cards than the phase needs could let
+  // validatePhase find a valid subset, but then ALL selected cards would
+  // be removed from the hand below — silently discarding the extras and
+  // potentially leaving the player with 0 cards (broken turn state).
+  const phaseTotal = phaseObj.parts.reduce((sum, p) => sum + p.count, 0);
+  if (selectedCardObjs.length !== phaseTotal) {
+    showMessage(`Select exactly ${phaseTotal} card${phaseTotal === 1 ? '' : 's'} for Phase ${phaseId}: ${phaseObj.desc}`);
+    return;
+  }
+
   const result = validatePhase(selectedCardObjs, phaseId);
 
   if (!result) {
@@ -593,8 +620,20 @@ window.layDownPhase = async function() {
     return;
   }
 
-  const usedIds = new Set(selectedCardObjs.map(c => c.id));
+  // ── Build usedIds from the cards actually placed in melds (result),
+  //     not from selectedCardObjs. Defense in depth: even if a future
+  //     change loosens the exact-count guard, we'll never remove a card
+  //     that wasn't actually melded. ──
+  const usedIds = new Set(result.flat().map(c => c.id));
   const newHand = localState.hand.filter(c => !usedIds.has(c.id));
+
+  // ── Final safety net: never let layDown empty the hand. The player
+  //     must keep at least 1 card to discard and end their turn. ──
+  if (newHand.length === 0) {
+    showMessage('Keep at least 1 card — you must discard to end your turn!');
+    return;
+  }
+
   localState.hand = newHand;
   localState.selectedCards = [];
 
@@ -1051,6 +1090,8 @@ window.backToLobby = async function() {
   localState.roomCode = null;
   localState.isHost = false;
   if (_unsub) { _unsub(); _unsub = null; }
+  unsubscribeChat();
+  hideChatWidget();
 
   // Host deletes the room so the code can be reused
   if (isHost && roomCode) {
@@ -1058,4 +1099,165 @@ window.backToLobby = async function() {
   }
 
   showScreen('lobby');
+};
+
+// ─────────────────────────────────────────────
+//  ROOM CHAT — push messages, render, unread badge
+// ─────────────────────────────────────────────
+let _chatUnsub    = null;
+let _chatLastSeen = 0;
+let _chatOpen     = false;
+let _chatMessages = [];
+
+function _escapeChatHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+function subscribeChat() {
+  if (_chatUnsub) { _chatUnsub(); _chatUnsub = null; }
+  if (!localState.roomCode) return;
+  // Start "last seen" at "now" so existing history doesn't count as unread on join.
+  _chatLastSeen = Date.now();
+  _chatMessages = [];
+  const chatRef = ref(db, `rooms/${localState.roomCode}/chat`);
+  _chatUnsub = onValue(chatRef, snap => {
+    const raw = snap.val() || {};
+    _chatMessages = Object.entries(raw)
+      .map(([key, msg]) => ({ key, ...(msg || {}) }))
+      .sort((a, b) => (a.ts || 0) - (b.ts || 0));
+    renderChat();
+  });
+}
+
+function unsubscribeChat() {
+  if (_chatUnsub) { _chatUnsub(); _chatUnsub = null; }
+  _chatMessages = [];
+  _chatOpen = false;
+  const listEl = document.getElementById('chat-messages');
+  if (listEl) listEl.innerHTML = '';
+  const badge = document.getElementById('chat-unread-badge');
+  if (badge) badge.style.display = 'none';
+}
+
+function renderChat() {
+  const listEl = document.getElementById('chat-messages');
+  if (!listEl) return;
+  const nearBottom = listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight < 50;
+
+  listEl.innerHTML = '';
+  if (_chatMessages.length === 0) {
+    const hint = document.createElement('div');
+    hint.className = 'chat-empty-hint';
+    hint.textContent = 'No messages yet — say hi! 🐾';
+    listEl.appendChild(hint);
+  } else {
+    for (const m of _chatMessages) {
+      const isMe = m.playerId === localState.playerId;
+      const row = document.createElement('div');
+      row.className = 'chat-msg' + (isMe ? ' chat-msg-me' : '');
+      row.innerHTML =
+        `<span class="chat-msg-head">${_escapeChatHtml(m.icon || '🐾')} ${_escapeChatHtml(m.name || 'Anon')}</span>`
+        + `<span class="chat-msg-text">${_escapeChatHtml(m.text || '')}</span>`;
+      listEl.appendChild(row);
+    }
+  }
+
+  if (nearBottom || _chatOpen) listEl.scrollTop = listEl.scrollHeight;
+
+  // Update unread badge based on _chatLastSeen
+  const badge = document.getElementById('chat-unread-badge');
+  if (!badge) return;
+  if (_chatOpen) {
+    _chatLastSeen = Date.now();
+    badge.style.display = 'none';
+    return;
+  }
+  const unread = _chatMessages.filter(m =>
+    (m.ts || 0) > _chatLastSeen && m.playerId !== localState.playerId
+  ).length;
+  if (unread > 0) {
+    badge.textContent = unread > 9 ? '9+' : String(unread);
+    badge.style.display = '';
+    // Re-trigger pulse animation
+    badge.classList.remove('chat-pulse');
+    void badge.offsetWidth;
+    badge.classList.add('chat-pulse');
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function showChatWidget() {
+  const root = document.getElementById('chat-root');
+  if (root) root.style.display = '';
+  // Always start minimized
+  const panel = document.getElementById('chat-panel');
+  if (panel) panel.classList.remove('open');
+  _chatOpen = false;
+}
+
+function hideChatWidget() {
+  const root = document.getElementById('chat-root');
+  if (root) root.style.display = 'none';
+  const panel = document.getElementById('chat-panel');
+  if (panel) panel.classList.remove('open');
+  _chatOpen = false;
+}
+
+window.toggleChat = function() {
+  const panel = document.getElementById('chat-panel');
+  if (!panel) return;
+  _chatOpen = !panel.classList.contains('open');
+  panel.classList.toggle('open', _chatOpen);
+  if (_chatOpen) {
+    _chatLastSeen = Date.now();
+    const badge = document.getElementById('chat-unread-badge');
+    if (badge) badge.style.display = 'none';
+    const listEl = document.getElementById('chat-messages');
+    if (listEl) listEl.scrollTop = listEl.scrollHeight;
+    // Focus the input shortly after opening
+    setTimeout(() => {
+      const input = document.getElementById('chat-input');
+      if (input) input.focus();
+    }, 60);
+  }
+};
+
+window.sendChatFromForm = function(ev) {
+  if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+  window.sendChat();
+  return false;
+};
+
+window.handleChatKeydown = function(ev) {
+  // Enter sends; Shift+Enter is a no-op here since it's a single-line input
+  if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) {
+    ev.preventDefault();
+    window.sendChat();
+  }
+};
+
+window.sendChat = async function() {
+  const input = document.getElementById('chat-input');
+  if (!input) return;
+  const raw = (input.value || '').trim();
+  if (!raw) return;
+  if (!localState.roomCode || !localState.playerId) return;
+  const text = raw.slice(0, 200);
+  input.value = '';
+  try {
+    const chatRef = ref(db, `rooms/${localState.roomCode}/chat`);
+    await push(chatRef, {
+      playerId: localState.playerId,
+      name:     localState.playerName || 'Anon',
+      icon:     localState.playerIcon || '🐾',
+      text,
+      ts:       Date.now(),
+    });
+  } catch (e) {
+    // Restore text so the user can retry
+    if (input && !input.value) input.value = text;
+  }
 };

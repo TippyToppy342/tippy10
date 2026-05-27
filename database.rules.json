@@ -1,0 +1,21 @@
+{
+  "rules": {
+    "rooms": {
+      "$roomCode": {
+        ".read":     "auth != null",
+        ".write":    "auth != null",
+        ".validate": "$roomCode.matches(/^[A-Z0-9]{3,8}$/)",
+
+        "chat": {
+          "$msgId": {
+            "text":     { ".validate": "newData.isString() && newData.val().length <= 500" },
+            "name":     { ".validate": "newData.isString() && newData.val().length <= 64"  },
+            "icon":     { ".validate": "newData.isString() && newData.val().length <= 16"  },
+            "playerId": { ".validate": "newData.isString() && newData.val().length <= 64"  },
+            "ts":       { ".validate": "newData.isNumber()" }
+          }
+        }
+      }
+    }
+  }
+}
