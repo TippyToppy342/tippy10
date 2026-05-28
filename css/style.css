@@ -421,9 +421,31 @@ body {
 .phase-info {
   color: #8899aa;
   display: inline-flex; align-items: center;
-  gap: 2px; flex-wrap: wrap;
+  gap: 6px; flex-wrap: wrap;
   padding-left: 10px;
   border-left: 1px solid rgba(255,255,255,.12);
+}
+/* Gold pill that anchors "Phase 1" so it balances visually with the icons */
+.phase-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(255,215,0,.18);
+  border: 1px solid rgba(255,215,0,.45);
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 999px;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+body.theme-95 .phase-pill {
+  background: rgba(0,255,65,.12);
+  border-color: #00ff41;
+  color: #00ff41;
+  border-radius: 0;
 }
 .hand-zone {
   display: flex; gap: 4px; overflow-x: auto;
