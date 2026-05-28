@@ -232,10 +232,12 @@ export function renderBoard(data, localState) {
   const myPlayer = data.players?.[myId];
   const phaseNum = Math.min(myPlayer?.phase || 1, 10);
   const phaseObj = PHASES[phaseNum - 1];
-  document.getElementById('hud-phase').textContent   = phaseNum;
-  // Phase visual now lives in the top-bar next to the phase badge (no longer in the player area).
-  const hudVisual = document.getElementById('hud-phase-visual');
-  if (hudVisual) hudVisual.innerHTML = `<span class="phase-visual">${renderPhaseVisual(phaseObj)}</span>`;
+  document.getElementById('hud-phase').textContent = phaseNum;
+  // Phase visual lives in the player-info-bar next to the player's name.
+  const myPhaseNum  = document.getElementById('my-phase-num');
+  const myPhaseDesc = document.getElementById('my-phase-desc');
+  if (myPhaseNum)  myPhaseNum.textContent = phaseNum;
+  if (myPhaseDesc) myPhaseDesc.innerHTML  = `<span class="phase-visual">${renderPhaseVisual(phaseObj)}</span>`;
   document.getElementById('my-name-display').textContent =
     (myPlayer?.icon || '') + ' ' + (myPlayer?.name || '');
 

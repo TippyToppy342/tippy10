@@ -204,10 +204,7 @@
     <div class="room-badge">Room: <span id="hud-room"></span></div>
     <div class="turn-indicator" id="turn-indicator">Waiting…</div>
     <div class="top-bar-right">
-      <div class="phase-badge">
-        Phase: <span id="hud-phase">1</span>
-        <span class="hud-phase-visual" id="hud-phase-visual"></span>
-      </div>
+      <div class="phase-badge">Phase: <span id="hud-phase">1</span></div>
       <button id="settings-btn" class="settings-gear-btn" onclick="toggleSettingsPanel()" title="Options">⚙</button>
     </div>
   </div>
@@ -237,6 +234,9 @@
   <div class="player-area">
     <div class="player-info-bar">
       <span id="my-name-display"></span>
+      <span class="phase-info">
+        Phase&nbsp;<span id="my-phase-num">1</span>:&nbsp;<span id="my-phase-desc"></span>
+      </span>
     </div>
     <div id="my-hand" class="hand-zone"></div>
 

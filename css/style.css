@@ -414,11 +414,17 @@ body {
   flex-shrink: 0;
 }
 .player-info-bar {
-  display: flex; justify-content: space-between; align-items: center;
+  display: flex; align-items: center;
   margin-bottom: 6px; font-size: 12px; font-weight: 700;
-  flex-wrap: wrap; gap: 4px;
+  flex-wrap: wrap; gap: 10px;
 }
-.phase-info { color: #8899aa; display: flex; align-items: center; gap: 2px; flex-wrap: wrap; }
+.phase-info {
+  color: #8899aa;
+  display: inline-flex; align-items: center;
+  gap: 2px; flex-wrap: wrap;
+  padding-left: 10px;
+  border-left: 1px solid rgba(255,255,255,.12);
+}
 .hand-zone {
   display: flex; gap: 4px; overflow-x: auto;
   padding-bottom: 4px; scrollbar-width: none;
@@ -1161,8 +1167,9 @@ body.theme-95 .theme-host-note { color: #005511; border-color: #003311; backgrou
 
 .settings-footer {
   text-align: center; padding: 10px;
-  font-size: 11px; color: #334;
-  border-top: 1px solid rgba(255,255,255,.05);
+  font-size: 11px; color: #8899aa;
+  border-top: 1px solid rgba(255,255,255,.08);
+  letter-spacing: .3px;
 }
 
 /* ══════════════════════════════════════════════
@@ -1478,7 +1485,7 @@ body.theme-95 .toggle-thumb { background: #005511; }
 body.theme-95 .settings-toggle input:checked ~ .toggle-track .toggle-thumb { background: #000; }
 body.theme-95 .toggle-label { color: #00aa22; }
 body.theme-95 .toggle-hint { color: #005511; }
-body.theme-95 .settings-footer { color: #003311; border-top-color: #001800; }
+body.theme-95 .settings-footer { color: #009922; border-top-color: #003311; }
 
 /* ══════════════════════════════════════════════
    OPTION: COMPACT HAND
