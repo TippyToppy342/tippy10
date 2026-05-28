@@ -1735,6 +1735,35 @@ body.theme-95 .wild-tippy-img {
 .chat-msg-me .chat-msg-head { color: #ffe066; }
 .chat-msg-text { display: block; color: #eee; }
 
+/* ── System / game-event chat messages (no head, centered, italic) ── */
+.chat-msg-system {
+  align-self: center;
+  font-size: 12px;
+  font-style: italic;
+  color: #8899aa;
+  text-align: center;
+  padding: 2px 10px;
+  background: transparent;
+  letter-spacing: .3px;
+  line-height: 1.4;
+  max-width: 95%;
+  cursor: default;
+}
+.chat-msg-system .chat-system-text {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.06);
+}
+body.theme-95 .chat-msg-system { color: #009922; }
+body.theme-95 .chat-msg-system .chat-system-text {
+  background: #001900;
+  border-color: #003311;
+  border-radius: 0;
+  color: #00aa22;
+}
+
 /* ── React trigger (small "+ 😀" on each message) ── */
 .chat-react-trigger {
   position: absolute;

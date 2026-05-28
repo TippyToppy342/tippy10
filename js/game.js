@@ -540,6 +540,7 @@ window.startGame = async function() {
     [`rooms/${localState.roomCode}/handNum`]:      1,
     [`rooms/${localState.roomCode}/theme`]:        window.getSettings?.()?.theme || 'standard',
   });
+  postSystemChatMessage('🐾 Round 1 begins — good luck!');
 };
 
 // ─────────────────────────────────────────────
@@ -661,6 +662,7 @@ window.layDownPhase = async function() {
   const myName = localState.gameData?.players?.[localState.playerId]?.name || 'Someone';
   const pm = nextPhaseMoment();
   await broadcastPopup(`${myName} — ${pm.text}`, pm.img);
+  postSystemChatMessage(`🎯 ${myName} laid down Phase ${phaseId}!`);
 };
 
 // ─────────────────────────────────────────────
@@ -760,11 +762,14 @@ window.discardSelected = async function() {
   let nextIdx = (myIdx + 1) % order.length;
 
   if (card.type === 'skip') {
+    // Capture skipped player BEFORE we advance the index again
+    const skippedIdx    = (myIdx + 1) % order.length;
+    const skippedName   = data.players?.[order[skippedIdx]]?.name || 'Someone';
     nextIdx = (nextIdx + 1) % order.length;
-    const skippedPlayer = data.players?.[order[nextIdx - 1 < 0 ? order.length - 1 : nextIdx - 1]];
     const myName = localState.gameData?.players?.[localState.playerId]?.name || 'Someone';
     const sm = nextSkipMoment();
     await broadcastPopup(`${myName}: ${sm.text}`, sm.img);
+    postSystemChatMessage(`⊘ ${myName} skipped ${skippedName}`);
   }
 
   const nextPlayer   = order[nextIdx];
@@ -853,6 +858,7 @@ async function handleGoOut(data, baseUpdates) {
   const myName = data.players?.[localState.playerId]?.name || 'Someone';
   const gm = nextGoOutMoment();
   await broadcastPopup(`${myName} ${gm.text}`, gm.img);
+  postSystemChatMessage(`🏆 ${myName} went out!`);
 }
 
 // ─────────────────────────────────────────────
@@ -889,6 +895,7 @@ window.startNextRound = async function() {
     [`rooms/${localState.roomCode}/handNum`]:      newHandNum,
     [`rooms/${localState.roomCode}/roundSummary`]: null,
   });
+  postSystemChatMessage(`🐾 Round ${newHandNum} begins!`);
 };
 
 // ─────────────────────────────────────────────
@@ -1118,6 +1125,42 @@ function _escapeChatHtml(s) {
   }[c]));
 }
 
+function _formatTsTooltip(ts) {
+  if (!ts) return '';
+  const now = Date.now();
+  const diff = Math.max(0, now - ts);
+  let rel;
+  if (diff < 45 * 1000)              rel = 'just now';
+  else if (diff < 90 * 1000)         rel = '1 min ago';
+  else if (diff < 60 * 60 * 1000)    rel = `${Math.round(diff / 60000)} min ago`;
+  else if (diff < 24 * 60 * 60 * 1000) rel = `${Math.round(diff / 3600000)} hr ago`;
+  else if (diff < 2 * 24 * 60 * 60 * 1000) rel = 'yesterday';
+  else                               rel = `${Math.round(diff / 86400000)} days ago`;
+  let abs = '';
+  try {
+    const d = new Date(ts);
+    abs = d.toLocaleString(undefined, { hour: 'numeric', minute: '2-digit', month: 'short', day: 'numeric' });
+  } catch (e) { abs = ''; }
+  return abs ? `${rel} · ${abs}` : rel;
+}
+
+// Post a system message to the room chat. Stored with `system: true` so the
+// renderer styles it differently and the notification path skips sound/popup.
+// The triggering player's playerId is included so the message doesn't bump
+// their own tab badge.
+async function postSystemChatMessage(text) {
+  if (!localState.roomCode) return;
+  try {
+    const chatRef = ref(db, `rooms/${localState.roomCode}/chat`);
+    await push(chatRef, {
+      system:   true,
+      text:     String(text).slice(0, 200),
+      playerId: localState.playerId || '',
+      ts:       Date.now(),
+    });
+  } catch (e) { /* non-critical */ }
+}
+
 function _playChatDing() {
   try {
     if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1158,9 +1201,53 @@ function _showChatToast(msg) {
   }, 4200);
 }
 
+// ── Browser-tab unread badge ──
+// Reflects new chat activity (including system events) in document.title
+// while the tab is hidden, so the user notices when they're in another tab.
+let _tabUnreadCount = 0;
+const _baseTitle = (typeof document !== 'undefined' && document.title) || 'Tippy 10';
+
+function _renderTabTitle() {
+  if (typeof document === 'undefined') return;
+  if (_tabUnreadCount > 0) {
+    const label = _tabUnreadCount > 9 ? '9+' : String(_tabUnreadCount);
+    document.title = `(${label}) ${_baseTitle}`;
+  } else {
+    document.title = _baseTitle;
+  }
+}
+
+function _bumpTabUnread() {
+  // Only accumulate while the tab is hidden — if the user is here, they'll see
+  // the in-app badge instead.
+  if (typeof document !== 'undefined' && document.visibilityState === 'visible') return;
+  _tabUnreadCount++;
+  _renderTabTitle();
+}
+
+function _resetTabUnread() {
+  if (_tabUnreadCount === 0) return;
+  _tabUnreadCount = 0;
+  _renderTabTitle();
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') _resetTabUnread();
+  });
+}
+
 function _maybeNotifyForMessage(msg) {
-  if (!msg || msg.playerId === localState.playerId) return;
-  if (_chatOpen) return;                         // user is looking at chat
+  if (!msg) return;
+  if (msg.playerId && msg.playerId === localState.playerId) return; // my own action
+
+  // Tab-title badge — fires for both regular and system messages when tab is hidden
+  _bumpTabUnread();
+
+  // Sound + popup are only for regular user messages (system events already have their
+  // own celebration popups) and only when the chat is closed.
+  if (msg.system) return;
+  if (_chatOpen) return;
   const settings = window.getSettings?.();
   if (settings && settings.chatnotify === false) return;
   _playChatDing();
@@ -1214,6 +1301,7 @@ function unsubscribeChat() {
   const toast = document.getElementById('chat-toast');
   if (toast) toast.classList.remove('show');
   if (_chatToastTimer) { clearTimeout(_chatToastTimer); _chatToastTimer = null; }
+  _resetTabUnread();
 }
 
 function renderChat() {
@@ -1228,13 +1316,29 @@ function renderChat() {
     hint.textContent = 'No messages yet — say hi! 🐾';
     listEl.appendChild(hint);
   } else {
+    // Helper: look up a player's display name from gameData (falls back to "Player")
+    const playerName = (pid) =>
+      localState.gameData?.players?.[pid]?.name || (pid === localState.playerId ? 'You' : 'Player');
+
     for (const m of _chatMessages) {
+      // ── System messages render differently — centered, italic, no head/react ──
+      if (m.system) {
+        const row = document.createElement('div');
+        row.className = 'chat-msg-system';
+        const tsTitle = m.ts ? _formatTsTooltip(m.ts) : '';
+        if (tsTitle) row.title = tsTitle;
+        row.innerHTML = `<span class="chat-system-text">${_escapeChatHtml(m.text || '')}</span>`;
+        listEl.appendChild(row);
+        continue;
+      }
+
       const isMe = m.playerId === localState.playerId;
       const row = document.createElement('div');
       row.className = 'chat-msg' + (isMe ? ' chat-msg-me' : '');
       row.dataset.msgId = m.key;
+      if (m.ts) row.title = _formatTsTooltip(m.ts);
 
-      // ── Reactions: aggregate playerIds per emoji ──
+      // ── Reactions: aggregate playerIds per emoji, with a name tooltip ──
       let reactionsHtml = '';
       if (m.reactions && typeof m.reactions === 'object') {
         const chips = [];
@@ -1244,8 +1348,12 @@ function renderChat() {
           if (playerIds.length === 0) continue;
           const mine = playerIds.includes(localState.playerId);
           const safeEmoji = _escapeChatHtml(emoji);
+          // Tooltip: list every player who reacted with this emoji
+          const names = playerIds.map(playerName).join(', ');
+          const tooltip = _escapeChatHtml(`${names} reacted with ${emoji}`);
           chips.push(
             `<button type="button" class="chat-reaction${mine ? ' chat-reaction-mine' : ''}"`
+            + ` title="${tooltip}"`
             + ` onclick="chatReactClick('${m.key}', '${encodeURIComponent(emoji)}')">`
             + `<span class="chat-reaction-emoji">${safeEmoji}</span>`
             + `<span class="chat-reaction-count">${playerIds.length}</span>`
@@ -1324,6 +1432,7 @@ window.toggleChat = function() {
   if (_chatOpen) {
     _chatLastSeen = Date.now();
     document.querySelectorAll('.chat-unread-badge').forEach(b => { b.style.display = 'none'; });
+    _resetTabUnread();
     // Dismiss any visible notification toast — the user is now looking at chat
     const toast = document.getElementById('chat-toast');
     if (toast) toast.classList.remove('show');
