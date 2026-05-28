@@ -233,8 +233,9 @@ export function renderBoard(data, localState) {
   const phaseNum = Math.min(myPlayer?.phase || 1, 10);
   const phaseObj = PHASES[phaseNum - 1];
   document.getElementById('hud-phase').textContent   = phaseNum;
-  document.getElementById('my-phase-num').textContent = phaseNum;
-  document.getElementById('my-phase-desc').innerHTML  = `<span class="phase-visual">${renderPhaseVisual(phaseObj)}</span>`;
+  // Phase visual now lives in the top-bar next to the phase badge (no longer in the player area).
+  const hudVisual = document.getElementById('hud-phase-visual');
+  if (hudVisual) hudVisual.innerHTML = `<span class="phase-visual">${renderPhaseVisual(phaseObj)}</span>`;
   document.getElementById('my-name-display').textContent =
     (myPlayer?.icon || '') + ' ' + (myPlayer?.name || '');
 

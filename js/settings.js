@@ -11,6 +11,7 @@ const DEFAULT_SETTINGS = {
   colorblind: false,       // letter labels on cards
   noanimations: false,     // suppress confetti / heavy anims
   showcardcount: false,    // always show opponent card counts
+  chatnotify: true,        // sound + popup when a new chat arrives while panel is closed
 };
 
 // ── Load saved settings ──────────────────────
@@ -75,6 +76,7 @@ function syncPanelUI() {
     'opt-colorblind':    'colorblind',
     'opt-noanimations':  'noanimations',
     'opt-showcardcount': 'showcardcount',
+    'opt-chatnotify':    'chatnotify',
   };
   for (const [id, key] of Object.entries(checkboxMap)) {
     const el = document.getElementById(id);

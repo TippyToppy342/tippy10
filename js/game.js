@@ -1102,12 +1102,15 @@ window.backToLobby = async function() {
 };
 
 // ─────────────────────────────────────────────
-//  ROOM CHAT — push messages, render, unread badge
+//  ROOM CHAT — push messages, render, unread badge, notifications
 // ─────────────────────────────────────────────
-let _chatUnsub    = null;
-let _chatLastSeen = 0;
-let _chatOpen     = false;
-let _chatMessages = [];
+let _chatUnsub        = null;
+let _chatLastSeen     = 0;
+let _chatOpen         = false;
+let _chatMessages     = [];
+let _chatNotifiedKeys = new Set();   // message keys we've already considered for notifications
+let _chatInitialLoaded = false;       // first onValue fire is history — don't notify
+let _audioCtx         = null;          // lazy-init Web Audio context
 
 function _escapeChatHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({
@@ -1115,29 +1118,102 @@ function _escapeChatHtml(s) {
   }[c]));
 }
 
+function _playChatDing() {
+  try {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = _audioCtx;
+    // Some browsers create the context suspended until user interaction
+    if (ctx.state === 'suspended') ctx.resume();
+    const now = ctx.currentTime;
+    // Two-note ding (A5 → E6)
+    [880, 1318].forEach((freq, i) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const t0 = now + i * 0.09;
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(0.16, t0 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.26);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + 0.3);
+    });
+  } catch (e) { /* audio unsupported or blocked — silent fail */ }
+}
+
+let _chatToastTimer = null;
+function _showChatToast(msg) {
+  const toast = document.getElementById('chat-toast');
+  if (!toast) return;
+  const senderIcon = _escapeChatHtml(msg.icon || '🐾');
+  const senderName = _escapeChatHtml(msg.name || 'Anon');
+  const preview    = _escapeChatHtml((msg.text || '').slice(0, 100));
+  toast.innerHTML = `<span class="chat-toast-head">${senderIcon} ${senderName}</span>`
+                  + `<span class="chat-toast-text">${preview}</span>`;
+  toast.classList.add('show');
+  if (_chatToastTimer) clearTimeout(_chatToastTimer);
+  _chatToastTimer = setTimeout(() => {
+    toast.classList.remove('show');
+  }, 4200);
+}
+
+function _maybeNotifyForMessage(msg) {
+  if (!msg || msg.playerId === localState.playerId) return;
+  if (_chatOpen) return;                         // user is looking at chat
+  const settings = window.getSettings?.();
+  if (settings && settings.chatnotify === false) return;
+  _playChatDing();
+  _showChatToast(msg);
+}
+
 function subscribeChat() {
   if (_chatUnsub) { _chatUnsub(); _chatUnsub = null; }
   if (!localState.roomCode) return;
   // Start "last seen" at "now" so existing history doesn't count as unread on join.
-  _chatLastSeen = Date.now();
-  _chatMessages = [];
+  _chatLastSeen      = Date.now();
+  _chatMessages      = [];
+  _chatNotifiedKeys  = new Set();
+  _chatInitialLoaded = false;
   const chatRef = ref(db, `rooms/${localState.roomCode}/chat`);
   _chatUnsub = onValue(chatRef, snap => {
     const raw = snap.val() || {};
     _chatMessages = Object.entries(raw)
       .map(([key, msg]) => ({ key, ...(msg || {}) }))
       .sort((a, b) => (a.ts || 0) - (b.ts || 0));
+
+    // Detect newly-arrived messages (vs. the initial history snapshot)
+    const newlyArrived = [];
+    for (const m of _chatMessages) {
+      if (!_chatNotifiedKeys.has(m.key)) {
+        _chatNotifiedKeys.add(m.key);
+        if (_chatInitialLoaded) newlyArrived.push(m);
+      }
+    }
+    _chatInitialLoaded = true;
+
     renderChat();
+
+    // Only notify for the newest one to avoid spamming if multiple
+    // arrive in the same listener tick
+    if (newlyArrived.length) {
+      _maybeNotifyForMessage(newlyArrived[newlyArrived.length - 1]);
+    }
   });
 }
 
 function unsubscribeChat() {
   if (_chatUnsub) { _chatUnsub(); _chatUnsub = null; }
-  _chatMessages = [];
-  _chatOpen = false;
+  _chatMessages      = [];
+  _chatNotifiedKeys  = new Set();
+  _chatInitialLoaded = false;
+  _chatOpen          = false;
   const listEl = document.getElementById('chat-messages');
   if (listEl) listEl.innerHTML = '';
   document.querySelectorAll('.chat-unread-badge').forEach(b => { b.style.display = 'none'; });
+  const toast = document.getElementById('chat-toast');
+  if (toast) toast.classList.remove('show');
+  if (_chatToastTimer) { clearTimeout(_chatToastTimer); _chatToastTimer = null; }
 }
 
 function renderChat() {
@@ -1156,14 +1232,42 @@ function renderChat() {
       const isMe = m.playerId === localState.playerId;
       const row = document.createElement('div');
       row.className = 'chat-msg' + (isMe ? ' chat-msg-me' : '');
+      row.dataset.msgId = m.key;
+
+      // ── Reactions: aggregate playerIds per emoji ──
+      let reactionsHtml = '';
+      if (m.reactions && typeof m.reactions === 'object') {
+        const chips = [];
+        for (const [emoji, players] of Object.entries(m.reactions)) {
+          if (!players || typeof players !== 'object') continue;
+          const playerIds = Object.keys(players).filter(pid => players[pid]);
+          if (playerIds.length === 0) continue;
+          const mine = playerIds.includes(localState.playerId);
+          const safeEmoji = _escapeChatHtml(emoji);
+          chips.push(
+            `<button type="button" class="chat-reaction${mine ? ' chat-reaction-mine' : ''}"`
+            + ` onclick="chatReactClick('${m.key}', '${encodeURIComponent(emoji)}')">`
+            + `<span class="chat-reaction-emoji">${safeEmoji}</span>`
+            + `<span class="chat-reaction-count">${playerIds.length}</span>`
+            + `</button>`
+          );
+        }
+        if (chips.length) reactionsHtml = `<div class="chat-reactions">${chips.join('')}</div>`;
+      }
+
       row.innerHTML =
         `<span class="chat-msg-head">${_escapeChatHtml(m.icon || '🐾')} ${_escapeChatHtml(m.name || 'Anon')}</span>`
-        + `<span class="chat-msg-text">${_escapeChatHtml(m.text || '')}</span>`;
+        + `<span class="chat-msg-text">${_escapeChatHtml(m.text || '')}</span>`
+        + reactionsHtml
+        + `<button type="button" class="chat-react-trigger" title="Add reaction"`
+        + ` onclick="chatShowReactPicker('${m.key}', event)">＋</button>`;
       listEl.appendChild(row);
     }
   }
 
   if (nearBottom || _chatOpen) listEl.scrollTop = listEl.scrollHeight;
+  // If the picker was open over a message that got re-rendered, re-anchor it
+  if (_reactionTargetMsgId) _repositionReactionPicker();
 
   // Update unread badge(s) — there are two: one on the floating FAB
   // and one on the inline action-bar button. Both use class .chat-unread-badge.
@@ -1220,6 +1324,10 @@ window.toggleChat = function() {
   if (_chatOpen) {
     _chatLastSeen = Date.now();
     document.querySelectorAll('.chat-unread-badge').forEach(b => { b.style.display = 'none'; });
+    // Dismiss any visible notification toast — the user is now looking at chat
+    const toast = document.getElementById('chat-toast');
+    if (toast) toast.classList.remove('show');
+    if (_chatToastTimer) { clearTimeout(_chatToastTimer); _chatToastTimer = null; }
     const listEl = document.getElementById('chat-messages');
     if (listEl) listEl.scrollTop = listEl.scrollHeight;
     // Focus the input shortly after opening
@@ -1266,3 +1374,81 @@ window.sendChat = async function() {
     if (input && !input.value) input.value = text;
   }
 };
+
+// ── Reactions ──
+let _reactionTargetMsgId = null;
+
+function _repositionReactionPicker() {
+  const picker = document.getElementById('chat-react-picker');
+  const panel  = document.getElementById('chat-panel');
+  if (!picker || !panel || !_reactionTargetMsgId) return;
+  const msgEl = panel.querySelector(`.chat-msg[data-msg-id="${_reactionTargetMsgId}"]`);
+  if (!msgEl) { _hideReactionPicker(); return; }
+  const panelRect = panel.getBoundingClientRect();
+  const msgRect   = msgEl.getBoundingClientRect();
+  // Show the picker right ABOVE the message's react trigger (top-right of the message).
+  const desiredTop  = msgRect.top - panelRect.top - 38;
+  const desiredLeft = msgRect.right - panelRect.left - 230;
+  picker.style.top  = Math.max(6, desiredTop) + 'px';
+  picker.style.left = Math.max(8, Math.min(desiredLeft, panel.clientWidth - 230)) + 'px';
+}
+
+function _showReactionPicker(msgId) {
+  _reactionTargetMsgId = msgId;
+  const picker = document.getElementById('chat-react-picker');
+  if (!picker) return;
+  picker.classList.add('open');
+  _repositionReactionPicker();
+}
+
+function _hideReactionPicker() {
+  _reactionTargetMsgId = null;
+  const picker = document.getElementById('chat-react-picker');
+  if (picker) picker.classList.remove('open');
+}
+
+async function _toggleReaction(msgId, emoji) {
+  if (!localState.roomCode || !localState.playerId || !msgId || !emoji) return;
+  const msg = _chatMessages.find(m => m.key === msgId);
+  const myAlready = !!(msg && msg.reactions && msg.reactions[emoji] && msg.reactions[emoji][localState.playerId]);
+  const path = `rooms/${localState.roomCode}/chat/${msgId}/reactions/${emoji}/${localState.playerId}`;
+  try {
+    if (myAlready) {
+      await remove(ref(db, path));
+    } else {
+      await set(ref(db, path), true);
+    }
+  } catch (e) { /* non-critical */ }
+}
+
+window.chatShowReactPicker = function(msgId, ev) {
+  if (ev) ev.stopPropagation();
+  if (_reactionTargetMsgId === msgId) {
+    _hideReactionPicker();
+  } else {
+    _showReactionPicker(msgId);
+  }
+};
+
+window.chatPickerSelect = function(emoji) {
+  const target = _reactionTargetMsgId;
+  _hideReactionPicker();
+  if (target) _toggleReaction(target, emoji);
+};
+
+// Toggle an existing reaction chip (click to add yours / remove yours).
+// The emoji is URI-encoded in the chip's onclick attribute to keep it safe
+// inside a single-quoted JS string literal in the rendered HTML.
+window.chatReactClick = function(msgId, encodedEmoji) {
+  const emoji = decodeURIComponent(encodedEmoji);
+  _toggleReaction(msgId, emoji);
+};
+
+// Close the picker on any click outside it (or outside a react trigger).
+document.addEventListener('click', (ev) => {
+  const picker = document.getElementById('chat-react-picker');
+  if (!picker || !picker.classList.contains('open')) return;
+  if (picker.contains(ev.target)) return;
+  if (ev.target.closest && ev.target.closest('.chat-react-trigger')) return;
+  _hideReactionPicker();
+});

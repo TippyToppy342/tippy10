@@ -74,6 +74,15 @@
       </label>
     </div>
 
+    <div class="settings-section">
+      <div class="settings-section-label">CHAT</div>
+      <label class="settings-toggle">
+        <input type="checkbox" id="opt-chatnotify" onchange="applyOption('chatnotify', this.checked)" />
+        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span class="toggle-label">Chat Notifications <span class="toggle-hint">sound + popup when chat is closed</span></span>
+      </label>
+    </div>
+
     <div class="settings-footer">Tippy10 v1.32 &nbsp;·&nbsp; A Game by Three Beans Inc. 🫘</div>
   </div>
 </div>
@@ -195,7 +204,10 @@
     <div class="room-badge">Room: <span id="hud-room"></span></div>
     <div class="turn-indicator" id="turn-indicator">Waiting…</div>
     <div class="top-bar-right">
-      <div class="phase-badge">Phase: <span id="hud-phase">1</span></div>
+      <div class="phase-badge">
+        Phase: <span id="hud-phase">1</span>
+        <span class="hud-phase-visual" id="hud-phase-visual"></span>
+      </div>
       <button id="settings-btn" class="settings-gear-btn" onclick="toggleSettingsPanel()" title="Options">⚙</button>
     </div>
   </div>
@@ -225,7 +237,6 @@
   <div class="player-area">
     <div class="player-info-bar">
       <span id="my-name-display"></span>
-      <span class="phase-info">Phase <span id="my-phase-num">1</span>: <span id="my-phase-desc"></span></span>
     </div>
     <div id="my-hand" class="hand-zone"></div>
 
@@ -317,6 +328,17 @@
       <button class="chat-min-btn" type="button" onclick="toggleChat()" title="Minimize">_</button>
     </div>
     <div id="chat-messages" class="chat-messages" aria-live="polite"></div>
+
+    <!-- Reaction picker — floats over a message when the user opens it -->
+    <div id="chat-react-picker" class="chat-react-picker" role="menu" aria-label="Add reaction">
+      <button type="button" onclick="chatPickerSelect('👍')" title="Thumbs up">👍</button>
+      <button type="button" onclick="chatPickerSelect('❤️')" title="Heart">❤️</button>
+      <button type="button" onclick="chatPickerSelect('😂')" title="Laugh">😂</button>
+      <button type="button" onclick="chatPickerSelect('🎉')" title="Party">🎉</button>
+      <button type="button" onclick="chatPickerSelect('🐾')" title="Tippy paw">🐾</button>
+      <button type="button" onclick="chatPickerSelect('🔥')" title="Fire">🔥</button>
+    </div>
+
     <form id="chat-form" class="chat-input-row" onsubmit="return sendChatFromForm(event)">
       <input
         id="chat-input"
@@ -330,6 +352,9 @@
       <button type="submit" class="chat-send-btn" title="Send">➤</button>
     </form>
   </div>
+
+  <!-- Notification toast (shown when a new chat arrives while the panel is closed) -->
+  <div id="chat-toast" class="chat-toast" onclick="toggleChat()" role="alert" aria-live="polite"></div>
 </div>
 
 <!-- Scripts -->

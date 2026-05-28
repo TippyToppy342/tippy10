@@ -182,6 +182,20 @@ body {
 
 .room-badge, .phase-badge { font-size: 12px; color: #8899aa; font-weight: 700; }
 .room-badge span, .phase-badge span { color: var(--gold); }
+/* Phase key now lives inline in the top-bar next to the phase number */
+.phase-badge { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.hud-phase-visual { display: inline-flex; align-items: center; min-width: 0; overflow: hidden; }
+.hud-phase-visual .phase-visual { gap: 4px; flex-wrap: nowrap; }
+.hud-phase-visual .mini-card {
+  width: 12px; height: 18px; font-size: 6px; border-width: 1px;
+}
+.hud-phase-visual .phase-visual-label { font-size: 7px; }
+.hud-phase-visual .phase-visual-plus  { font-size: 10px; padding: 0 1px; }
+.hud-phase-visual .phase-visual-cards { gap: 1px; }
+/* On narrow screens drop the phase visual rather than wrap the top bar */
+@media (max-width: 640px) {
+  .hud-phase-visual { display: none; }
+}
 
 .turn-indicator {
   font-family: 'Bebas Neue', sans-serif; font-size: 20px;
@@ -1600,9 +1614,9 @@ body.theme-95 .wild-tippy-img {
   position: absolute;
   right: 0;
   bottom: 0;
-  width: 300px;
+  width: 360px;
   max-width: calc(100vw - 28px);
-  height: 380px;
+  height: 460px;
   max-height: calc(100dvh - 28px);
   background: var(--surface);
   border: 1px solid rgba(255,255,255,.12);
@@ -1619,14 +1633,14 @@ body.theme-95 .wild-tippy-img {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
+  padding: 12px 16px;
   background: linear-gradient(135deg, rgba(255,215,0,.18), rgba(255,159,28,.10));
   border-bottom: 1px solid rgba(255,255,255,.08);
   flex-shrink: 0;
 }
 .chat-title {
   font-weight: 800;
-  font-size: 14px;
+  font-size: 15px;
   letter-spacing: .5px;
   color: #fff;
 }
@@ -1647,10 +1661,10 @@ body.theme-95 .wild-tippy-img {
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 10px 12px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
   scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,.15) transparent;
 }
@@ -1665,12 +1679,13 @@ body.theme-95 .wild-tippy-img {
 }
 
 .chat-msg {
+  position: relative; /* anchor for the react-trigger button */
   background: rgba(255,255,255,.05);
-  border-radius: 10px;
-  padding: 6px 10px;
-  font-size: 13px;
-  line-height: 1.35;
-  max-width: 92%;
+  border-radius: 12px;
+  padding: 8px 12px 10px 12px;
+  font-size: 14px;
+  line-height: 1.45;
+  max-width: 88%;
   align-self: flex-start;
   word-wrap: break-word;
   overflow-wrap: anywhere;
@@ -1685,11 +1700,99 @@ body.theme-95 .wild-tippy-img {
   font-size: 11px;
   font-weight: 700;
   color: var(--gold);
-  margin-bottom: 1px;
+  margin-bottom: 2px;
   letter-spacing: .3px;
 }
 .chat-msg-me .chat-msg-head { color: #ffe066; }
 .chat-msg-text { display: block; color: #eee; }
+
+/* ── React trigger (small "+ 😀" on each message) ── */
+.chat-react-trigger {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: rgba(255,255,255,.06);
+  color: #ccc;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  transition: background .15s, transform .1s;
+  padding: 0;
+}
+.chat-msg:hover .chat-react-trigger,
+.chat-react-trigger:focus,
+.chat-react-trigger.active { display: inline-flex; }
+.chat-react-trigger:hover { background: rgba(255,215,0,.25); transform: scale(1.08); }
+
+/* ── Existing reactions on a message (chips below the text) ── */
+.chat-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.chat-reaction {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px 2px 6px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 999px;
+  font-size: 12px;
+  color: #ccc;
+  cursor: pointer;
+  font-family: inherit;
+  line-height: 1.2;
+  transition: background .12s, border-color .12s, transform .08s;
+}
+.chat-reaction:hover { background: rgba(255,255,255,.12); }
+.chat-reaction:active { transform: scale(.94); }
+.chat-reaction-mine {
+  background: rgba(255,215,0,.18);
+  border-color: rgba(255,215,0,.6);
+  color: #ffe066;
+}
+.chat-reaction-mine:hover { background: rgba(255,215,0,.26); }
+.chat-reaction-emoji { font-size: 13px; line-height: 1; }
+.chat-reaction-count { font-weight: 700; font-size: 11px; }
+
+/* ── Emoji picker (positioned over a message when react-trigger is clicked) ── */
+.chat-react-picker {
+  display: none;
+  position: absolute;
+  z-index: 10;
+  background: var(--surface);
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 999px;
+  padding: 4px 6px;
+  gap: 2px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.5);
+}
+.chat-react-picker.open { display: inline-flex; }
+.chat-react-picker button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  line-height: 1;
+  padding: 0;
+  transition: transform .1s, background .12s;
+}
+.chat-react-picker button:hover {
+  background: rgba(255,215,0,.18);
+  transform: scale(1.18);
+}
 
 .chat-input-row {
   display: flex;
@@ -1815,6 +1918,58 @@ body.theme-95 .chat-send-btn {
   border-radius: 0;
 }
 body.theme-95 .chat-empty-hint { color: #005511; }
+
+/* ── Chat notification toast (appears at the bottom-right when chat is closed) ── */
+.chat-toast {
+  position: absolute;
+  right: 0;
+  bottom: 64px;
+  max-width: 280px;
+  background: var(--surface);
+  border: 1px solid rgba(255,215,0,.45);
+  border-radius: 12px;
+  padding: 9px 13px;
+  font-size: 13px;
+  color: #eee;
+  box-shadow: 0 8px 22px rgba(0,0,0,.55);
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  cursor: pointer;
+  transition: opacity .22s ease, transform .22s ease;
+  display: none;
+  line-height: 1.35;
+}
+.chat-toast.show { display: block; opacity: 1; transform: translateY(0); pointer-events: auto; }
+.chat-toast-head { font-weight: 800; color: var(--gold); font-size: 12px; display: block; margin-bottom: 1px; }
+.chat-toast-text { color: #ddd; word-break: break-word; }
+body.theme-95 .chat-toast {
+  background: #000;
+  border: 1px solid #00ff41;
+  border-radius: 0;
+  color: #00ff41;
+  box-shadow: 0 0 14px rgba(0,255,65,.3);
+}
+body.theme-95 .chat-toast-head { color: #00ff41; }
+body.theme-95 .chat-toast-text { color: #00dd38; }
+
+body.theme-95 .chat-reaction {
+  background: #001900;
+  border: 1px solid #003311;
+  color: #00aa22;
+  border-radius: 0;
+}
+body.theme-95 .chat-reaction:hover { background: rgba(0,255,65,.08); border-color: #00ff41; color: #00ff41; }
+body.theme-95 .chat-reaction-mine { background: rgba(0,255,65,.15); border-color: #00ff41; color: #00ff41; }
+body.theme-95 .chat-react-trigger { background: rgba(0,255,65,.06); color: #00aa22; }
+body.theme-95 .chat-react-trigger:hover { background: rgba(0,255,65,.2); color: #00ff41; }
+body.theme-95 .chat-react-picker {
+  background: #000;
+  border: 1px solid #00ff41;
+  border-radius: 0;
+  box-shadow: 0 0 14px rgba(0,255,65,.3);
+}
+body.theme-95 .chat-react-picker button:hover { background: rgba(0,255,65,.18); }
 body.theme-95 .chat-inline-btn {
   border-color: #00ff41;
   color: #00ff41;
