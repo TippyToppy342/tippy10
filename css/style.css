@@ -137,6 +137,99 @@ body {
 /* Lobby-only button sizing — tighter than the global .btn so the card fits without scroll */
 .lobby-card .btn { padding: 10px 14px; font-size: 16px; border-radius: 8px; }
 
+/* ── Solo (Play vs Tippy) setup ── */
+.solo-toggle-btn { margin-top: 8px; }
+.solo-setup {
+  margin-top: 12px;
+  padding: 12px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 10px;
+}
+.solo-count-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.solo-count-btn {
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.12);
+  color: #ccc;
+  font: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 8px 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.solo-count-btn:hover { background: rgba(255,255,255,.1); }
+.solo-count-btn.selected {
+  background: rgba(255,215,0,.18);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.solo-difficulty-list { margin: 10px 0 4px; }
+.solo-opp-row { margin-bottom: 8px; }
+.solo-opp-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #8899aa;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.solo-diff-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.solo-diff-btn {
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.10);
+  color: #bbb;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 8px 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  transition: background .15s, border-color .15s, transform .08s;
+  gap: 2px;
+  line-height: 1.1;
+}
+.solo-diff-btn:hover { background: rgba(255,255,255,.08); }
+.solo-diff-btn:active { transform: scale(.97); }
+.solo-diff-btn.selected {
+  background: rgba(255,215,0,.16);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.solo-diff-icon { font-size: 20px; line-height: 1; }
+.solo-diff-label { font-size: 10px; font-weight: 800; letter-spacing: .3px; text-transform: uppercase; }
+
+/* Tippy10 '95 overrides for solo setup */
+body.theme-95 .solo-setup {
+  background: #001100;
+  border: 1px solid #00ff41;
+  border-radius: 0;
+}
+body.theme-95 .solo-count-btn,
+body.theme-95 .solo-diff-btn {
+  background: #000;
+  border: 1px solid #003311;
+  color: #009922;
+  border-radius: 0;
+  font-family: 'Courier New', monospace;
+}
+body.theme-95 .solo-count-btn.selected,
+body.theme-95 .solo-diff-btn.selected {
+  background: rgba(0,255,65,.12);
+  border-color: #00ff41;
+  color: #00ff41;
+}
+body.theme-95 .solo-opp-label { color: #009922; }
+
 /* ═══════════════════════════════════════════
    WAITING ROOM
 ═══════════════════════════════════════════ */

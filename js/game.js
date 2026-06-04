@@ -15,6 +15,7 @@ export let localState = {
   playerIcon: '🦁',
   roomCode: null,
   isHost: false,
+  isSolo: false,    // true for single-player; bypasses Firebase
   hand: [],
   selectedCards: [],
   gameData: null,
@@ -547,6 +548,7 @@ window.startGame = async function() {
 //  DRAW CARD
 // ─────────────────────────────────────────────
 window.drawCard = async function(source) {
+  if (localState.isSolo) return window.soloDraw?.(source);
   const data = localState.gameData;
   if (!data || data.status !== 'playing') return;
   if (data.currentTurn !== localState.playerId) { showMessage('Not your turn!'); return; }
@@ -590,6 +592,7 @@ window.drawCard = async function(source) {
 //  LAY DOWN PHASE
 // ─────────────────────────────────────────────
 window.layDownPhase = async function() {
+  if (localState.isSolo) return window.soloLayDownPhase?.();
   const data = localState.gameData;
   if (!data || data.currentTurn !== localState.playerId) return;
   if (data.turnPhase !== 'play') { showMessage('Draw a card first'); return; }
@@ -669,6 +672,7 @@ window.layDownPhase = async function() {
 //  HIT (add to meld)  — fixed Firebase array bug
 // ─────────────────────────────────────────────
 window.hitMeld = async function(ownerId, groupIndex) {
+  if (localState.isSolo) return window.soloHitMeld?.(ownerId, groupIndex);
   const data = localState.gameData;
   if (!data || data.status !== 'playing') return;
   if (data.currentTurn !== localState.playerId) { showMessage('Not your turn!'); return; }
@@ -747,6 +751,7 @@ window.hitMeld = async function(ownerId, groupIndex) {
 //  DISCARD
 // ─────────────────────────────────────────────
 window.discardSelected = async function() {
+  if (localState.isSolo) return window.soloDiscard?.();
   const data = localState.gameData;
   if (!data || data.currentTurn !== localState.playerId) { showMessage('Not your turn!'); return; }
   if (data.turnPhase !== 'play') { showMessage('Draw a card first'); return; }
@@ -865,6 +870,7 @@ async function handleGoOut(data, baseUpdates) {
 //  START NEXT ROUND  (host only)
 // ─────────────────────────────────────────────
 window.startNextRound = async function() {
+  if (localState.isSolo) return window.soloStartNextRound?.();
   if (!localState.isHost) return;
   const data  = localState.gameData;
   const order = firebaseToArray(data.playerOrder);
@@ -1083,6 +1089,7 @@ function launchConfetti() {
 }
 
 window.backToLobby = async function() {
+  if (localState.isSolo) return window.endSoloGame?.();
   const roomCode = localState.roomCode;
   const isHost   = localState.isHost;
 
@@ -1466,9 +1473,25 @@ window.sendChat = async function() {
   if (!input) return;
   const raw = (input.value || '').trim();
   if (!raw) return;
-  if (!localState.roomCode || !localState.playerId) return;
+  if (!localState.playerId) return;
   const text = raw.slice(0, 200);
   input.value = '';
+
+  // Solo mode: push to local chat list, no Firebase
+  if (localState.isSolo) {
+    _chatMessages = [..._chatMessages, {
+      key: 'm_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+      playerId: localState.playerId,
+      name:     localState.playerName || 'You',
+      icon:     localState.playerIcon || '🦁',
+      text,
+      ts:       Date.now(),
+    }];
+    renderChat();
+    return;
+  }
+
+  if (!localState.roomCode) return;
   try {
     const chatRef = ref(db, `rooms/${localState.roomCode}/chat`);
     await push(chatRef, {
@@ -1483,6 +1506,20 @@ window.sendChat = async function() {
     if (input && !input.value) input.value = text;
   }
 };
+
+// ─────────────────────────────────────────────
+//  SOLO HOOKS — expose internals solo.js needs
+// ─────────────────────────────────────────────
+window.declareWildsSolo = (groups, phaseObj) => declareWildsIfNeeded(groups, phaseObj);
+window.showWildChoiceModalSolo = (options) => showWildChoiceModal(options);
+window.soloShowChatWidget = () => showChatWidget();
+window.soloHideChatWidget = () => hideChatWidget();
+window.soloShowEndScreen  = (data) => showEndScreen(data);
+window.soloRenderLocalChat = (messages) => {
+  _chatMessages = Array.isArray(messages) ? messages.slice() : [];
+  renderChat();
+};
+window.applySortMode = applySortMode;
 
 // ── Reactions ──
 let _reactionTargetMsgId = null;

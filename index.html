@@ -162,7 +162,42 @@
     </div>
     <p id="lobby-error" class="error-msg"></p>
 
-    <!-- Rejoin saved game -->
+    <!-- Single-player: Play vs Tippy -->
+    <div class="divider"><span>or Play Solo</span></div>
+    <button id="btn-show-solo" class="btn btn-create solo-toggle-btn" onclick="showSoloSetup()" style="width:100%">🐾 Play vs Tippy</button>
+
+    <!-- Solo setup form (hidden until Play vs Tippy is clicked) -->
+    <div id="solo-setup" class="solo-setup" style="display:none">
+      <div class="field-group">
+        <label>Opponents</label>
+        <div class="solo-count-row">
+          <button type="button" class="solo-count-btn selected" data-count="1" onclick="setSoloCount(1)">1 Tippy</button>
+          <button type="button" class="solo-count-btn"          data-count="2" onclick="setSoloCount(2)">2 Tippys</button>
+          <button type="button" class="solo-count-btn"          data-count="3" onclick="setSoloCount(3)">3 Tippys</button>
+        </div>
+      </div>
+      <div id="solo-difficulty-list" class="solo-difficulty-list"></div>
+      <div class="btn-row">
+        <button type="button" class="btn btn-join" onclick="hideSoloSetup()">Back</button>
+        <button type="button" class="btn btn-create" onclick="startSoloGameFromForm()">Start 🐾</button>
+      </div>
+      <p id="solo-error" class="error-msg"></p>
+    </div>
+
+    <!-- Resume solo game -->
+    <div id="solo-resume-section" class="rejoin-section" style="display:none">
+      <div class="divider"><span>or Resume Solo Game</span></div>
+      <div class="rejoin-card">
+        <div class="rejoin-info">
+          <div class="rejoin-room">Solo Game in Progress</div>
+          <div class="rejoin-name">Resume against Tippy 🐾</div>
+        </div>
+        <button class="btn btn-join rejoin-btn" onclick="resumeSoloGame()">Resume</button>
+      </div>
+      <button class="btn-dismiss" onclick="dismissSoloResume()">✕ Dismiss</button>
+    </div>
+
+    <!-- Rejoin saved multiplayer game -->
     <div id="rejoin-section" class="rejoin-section" style="display:none">
       <div class="divider"><span>or Resume Game</span></div>
       <div class="rejoin-card">
@@ -363,6 +398,9 @@
 <script type="module" src="js/cards.js"></script>
 <script type="module" src="js/game.js"></script>
 <script type="module" src="js/ui.js"></script>
+<script type="module" src="js/ai.js"></script>
+<script type="module" src="js/solo.js"></script>
 <script src="js/settings.js"></script>
+<script src="js/solo-lobby.js"></script>
 </body>
 </html>
