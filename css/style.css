@@ -1173,14 +1173,16 @@ body.theme-95 .btn-sm.sort-active {
   padding: 0;
   width: 300px;
   max-width: 94vw;
-  max-height: calc(100dvh - 72px);   /* viewport minus top + bottom padding */
-  overflow-y: auto;                  /* scroll internally when content overflows */
+  /* Use vh as a robust fallback for older iOS Safari that doesn't grok dvh */
+  max-height: calc(100vh - 72px);
+  max-height: calc(100dvh - 72px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,.18) transparent;
   box-shadow: 0 20px 60px rgba(0,0,0,.7);
   transform: translateY(-8px) scale(.97);
   transition: transform .22s cubic-bezier(.34,1.56,.64,1);
-  overflow: hidden;
 }
 .settings-overlay.open .settings-panel {
   transform: translateY(0) scale(1);
@@ -2293,6 +2295,42 @@ body.opt-mobile .settings-panel {
   transition: background .15s, border-color .15s;
 }
 .fullscreen-btn:hover { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.25); }
+.fullscreen-btn-disabled,
+.fullscreen-btn:disabled {
+  opacity: .65;
+  cursor: not-allowed;
+}
+.fullscreen-btn-disabled:hover,
+.fullscreen-btn:disabled:hover {
+  background: rgba(255,255,255,.06);
+  border-color: rgba(255,255,255,.14);
+}
+.install-hint {
+  font-size: 11px;
+  color: #8899aa;
+  line-height: 1.4;
+  margin: 8px 2px 0;
+  padding: 8px 10px;
+  background: rgba(255,215,0,.06);
+  border: 1px solid rgba(255,215,0,.15);
+  border-radius: 8px;
+}
+.install-hint strong { color: var(--gold); font-weight: 800; }
+.install-hint .hint-icon {
+  display: inline-block;
+  font-size: 12px;
+  color: var(--gold);
+  vertical-align: -1px;
+  margin: 0 2px;
+}
+body.theme-95 .install-hint {
+  background: #001100;
+  border-color: #003311;
+  color: #009922;
+  border-radius: 0;
+}
+body.theme-95 .install-hint strong { color: #00ff41; }
+body.theme-95 .install-hint .hint-icon { color: #00ff41; }
 
 /* '95 theme overrides for layout + fullscreen */
 body.theme-95 .layout-option {

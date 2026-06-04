@@ -113,11 +113,56 @@ function syncPanelUI() {
   document.querySelectorAll('input[name="mobilemode"]').forEach(r => {
     r.checked = (r.value === mode);
   });
-  // Sync the fullscreen button label too
+  // Sync the fullscreen button — three cases:
+  //   1) Already running as installed PWA (standalone)  → show "Running fullscreen"
+  //   2) Browser supports requestFullscreen              → toggle Enter/Exit Fullscreen
+  //   3) Otherwise (iOS Safari mostly)                   → show Add-to-Home-Screen hint
+  syncFullscreenUi();
+}
+
+function syncFullscreenUi() {
   const fsBtn = document.getElementById('btn-toggle-fullscreen');
-  if (fsBtn) {
-    const inFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  const hint  = document.getElementById('install-hint');
+  if (!fsBtn || !hint) return;
+
+  const standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+                  || window.navigator.standalone === true;
+  const docEl = document.documentElement;
+  const fsSupported = !!(docEl.requestFullscreen || docEl.webkitRequestFullscreen);
+  const inFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  const ua   = navigator.userAgent || '';
+  const isIos = /iPad|iPhone|iPod/.test(ua) || (/Mac/.test(ua) && 'ontouchend' in document);
+
+  if (standalone) {
+    fsBtn.textContent = '✓ Running as installed app';
+    fsBtn.disabled = true;
+    fsBtn.classList.add('fullscreen-btn-disabled');
+    hint.style.display = 'none';
+    return;
+  }
+  fsBtn.disabled = false;
+  fsBtn.classList.remove('fullscreen-btn-disabled');
+
+  if (fsSupported) {
     fsBtn.textContent = inFs ? 'Exit Fullscreen' : 'Enter Fullscreen';
+    // Still suggest install for the best mobile feel
+    if (isIos) {
+      hint.style.display = '';
+      hint.innerHTML = 'For the full app feel on iOS, tap the Share button <span class="hint-icon">⬆︎</span> in Safari and choose <strong>Add to Home Screen</strong>.';
+    } else {
+      hint.style.display = 'none';
+    }
+  } else {
+    // iOS Safari: requestFullscreen isn't available at all. Reframe the button.
+    fsBtn.textContent = '📱 Install for Fullscreen';
+    fsBtn.disabled = true;
+    fsBtn.classList.add('fullscreen-btn-disabled');
+    hint.style.display = '';
+    if (isIos) {
+      hint.innerHTML = 'iOS doesn\'t allow fullscreen in Safari. To play fullscreen, tap the Share button <span class="hint-icon">⬆︎</span> at the bottom of Safari and choose <strong>Add to Home Screen</strong>.';
+    } else {
+      hint.innerHTML = 'Your browser doesn\'t support fullscreen. Try installing the app from your browser menu.';
+    }
   }
 }
 
@@ -195,12 +240,7 @@ window.toggleFullscreen = function() {
 // Keep the Fullscreen button label in sync if the user exits via Esc
 if (typeof document !== 'undefined') {
   ['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => {
-    document.addEventListener(ev, () => {
-      const fsBtn = document.getElementById('btn-toggle-fullscreen');
-      if (!fsBtn) return;
-      const inFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
-      fsBtn.textContent = inFs ? 'Exit Fullscreen' : 'Enter Fullscreen';
-    });
+    document.addEventListener(ev, () => syncFullscreenUi());
   });
 }
 
