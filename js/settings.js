@@ -12,7 +12,18 @@ const DEFAULT_SETTINGS = {
   noanimations: false,     // suppress confetti / heavy anims
   showcardcount: false,    // always show opponent card counts
   chatnotify: true,        // sound + popup when a new chat arrives while panel is closed
+  mobilemode: 'auto',      // 'auto' | 'on' | 'off' — Mobile layout override
 };
+
+// ── Mobile auto-detect ──
+// Coarse pointer (finger) OR narrow viewport (< 768px) counts as mobile.
+function isLikelyMobile() {
+  if (typeof window === 'undefined') return false;
+  try {
+    if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return true;
+  } catch (e) {}
+  return window.innerWidth < 768;
+}
 
 // ── Load saved settings ──────────────────────
 function loadSettings() {
@@ -48,9 +59,23 @@ function applyAllSettings() {
   b.classList.toggle('opt-noanimations',  !!_settings.noanimations);
   b.classList.toggle('opt-showcardcount', !!_settings.showcardcount);
 
+  // Mobile layout — auto-detect when 'auto', otherwise honour the override
+  const mode = _settings.mobilemode || 'auto';
+  const effectiveMobile = mode === 'on' ? true
+                        : mode === 'off' ? false
+                        : isLikelyMobile();
+  b.classList.toggle('opt-mobile', effectiveMobile);
+
   // Scanline overlay visibility
   const scanline = document.getElementById('scanline-overlay');
   if (scanline) scanline.style.display = _settings.theme === '95' ? 'block' : 'none';
+}
+
+// Re-evaluate mobile mode when the viewport changes (only matters in 'auto')
+if (typeof window !== 'undefined') {
+  window.addEventListener('resize', () => {
+    if ((_settings.mobilemode || 'auto') === 'auto') applyAllSettings();
+  });
 }
 
 // ── Sync panel UI to current settings ────────
@@ -81,6 +106,18 @@ function syncPanelUI() {
   for (const [id, key] of Object.entries(checkboxMap)) {
     const el = document.getElementById(id);
     if (el) el.checked = !!_settings[key];
+  }
+
+  // Mobile-mode radio group
+  const mode = _settings.mobilemode || 'auto';
+  document.querySelectorAll('input[name="mobilemode"]').forEach(r => {
+    r.checked = (r.value === mode);
+  });
+  // Sync the fullscreen button label too
+  const fsBtn = document.getElementById('btn-toggle-fullscreen');
+  if (fsBtn) {
+    const inFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    fsBtn.textContent = inFs ? 'Exit Fullscreen' : 'Enter Fullscreen';
   }
 }
 
@@ -137,6 +174,35 @@ window.closeSettingsPanelIfBg = function(e) {
 
 // ── Public: expose settings for other scripts ─
 window.getSettings = function() { return { ..._settings }; };
+
+// ── Public: Fullscreen API toggle (used from the settings panel) ─
+window.toggleFullscreen = function() {
+  const inFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  try {
+    if (inFs) {
+      (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    } else {
+      const el = document.documentElement;
+      (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+    }
+  } catch (e) {
+    // Some browsers (notably iOS Safari) don't support the Fullscreen API.
+    // PWA install ("Add to Home Screen") gives them a similar full-screen
+    // experience — the LAYOUT settings already cover mobile-friendly UI.
+  }
+};
+
+// Keep the Fullscreen button label in sync if the user exits via Esc
+if (typeof document !== 'undefined') {
+  ['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => {
+    document.addEventListener(ev, () => {
+      const fsBtn = document.getElementById('btn-toggle-fullscreen');
+      if (!fsBtn) return;
+      const inFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+      fsBtn.textContent = inFs ? 'Exit Fullscreen' : 'Enter Fullscreen';
+    });
+  });
+}
 
 // ── Init on DOM ready ─────────────────────────
 document.addEventListener('DOMContentLoaded', () => {

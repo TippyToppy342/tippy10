@@ -2,8 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Tippy 10</title>
+
+  <!-- ── PWA: install + theming ── -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#0d1b2a" />
+  <meta name="description" content="Phase 10 with Tippy the Pug — play vs Tippy or with friends in real-time." />
+
+  <!-- ── iOS PWA / Add to Home Screen ── -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Tippy 10" />
+  <link rel="apple-touch-icon" href="images/apple-touch-icon.png" />
+  <link rel="icon" href="images/icon-192.png" type="image/png" />
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;600;700;800&family=VT323&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
@@ -81,6 +94,28 @@
         <span class="toggle-track"><span class="toggle-thumb"></span></span>
         <span class="toggle-label">Chat Notifications <span class="toggle-hint">sound + popup when chat is closed</span></span>
       </label>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-label">LAYOUT</div>
+      <div class="layout-options">
+        <label class="layout-option">
+          <input type="radio" name="mobilemode" value="auto" onchange="applyOption('mobilemode', 'auto')" />
+          <span class="layout-name">Auto-detect</span>
+          <span class="layout-desc">Mobile for touch / narrow screens, desktop otherwise</span>
+        </label>
+        <label class="layout-option">
+          <input type="radio" name="mobilemode" value="on" onchange="applyOption('mobilemode', 'on')" />
+          <span class="layout-name">Mobile layout</span>
+          <span class="layout-desc">Bigger buttons, single column, thumb-reach action bar</span>
+        </label>
+        <label class="layout-option">
+          <input type="radio" name="mobilemode" value="off" onchange="applyOption('mobilemode', 'off')" />
+          <span class="layout-name">Desktop layout</span>
+          <span class="layout-desc">Standard view at any screen size</span>
+        </label>
+      </div>
+      <button id="btn-toggle-fullscreen" type="button" class="fullscreen-btn" onclick="toggleFullscreen()">Enter Fullscreen</button>
     </div>
 
     <div class="settings-footer">Tippy10 v1.32 &nbsp;·&nbsp; A Game by Three Beans Inc. 🫘</div>

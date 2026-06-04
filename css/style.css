@@ -2136,3 +2136,176 @@ body.theme-95 .chat-unread-badge.inline-badge {
 /* ── Reduce-animations option ── */
 body.opt-noanimations .chat-fab { transition: none; }
 body.opt-noanimations .chat-unread-badge { animation: none; }
+
+/* ══════════════════════════════════════════════
+   MOBILE LAYOUT (body.opt-mobile)
+   Auto-applied on touch / narrow viewports; forced
+   on/off by the LAYOUT setting in the gear panel.
+════════════════════════════════════════════════ */
+body.opt-mobile {
+  --card-w: 72px;
+  --card-h: 104px;
+}
+
+/* Top bar — slimmer, hide phase visual (already hidden under 640px),
+   smaller turn indicator */
+body.opt-mobile .top-bar {
+  height: 44px;
+  padding: 0 10px;
+  gap: 8px;
+}
+body.opt-mobile .turn-indicator { font-size: 14px; padding: 4px 8px; }
+body.opt-mobile .room-badge,
+body.opt-mobile .phase-badge { font-size: 11px; }
+body.opt-mobile .hud-phase-visual { display: none; }
+body.opt-mobile .settings-gear-btn { width: 32px; height: 32px; font-size: 18px; }
+
+/* Scoreboard — narrower chips, horizontal scroll */
+body.opt-mobile .scoreboard-bar { padding: 4px 6px; gap: 4px; overflow-x: auto; flex-wrap: nowrap; }
+body.opt-mobile .sb-chip { font-size: 11px; padding: 3px 8px; flex-shrink: 0; }
+
+/* Opponents — compact horizontal strip */
+body.opt-mobile .opponents-area {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding: 4px 8px;
+  gap: 6px;
+}
+body.opt-mobile .opp-panel { min-width: 110px; flex-shrink: 0; padding: 6px 8px; }
+body.opt-mobile .opp-name { font-size: 11px; }
+body.opt-mobile .opp-phase-visual { display: none; } /* save vertical space */
+
+/* Center table — tighter spacing */
+body.opt-mobile .table-area { padding: 6px 8px; gap: 8px; }
+body.opt-mobile .pile-zone { gap: 8px; }
+body.opt-mobile .meld-area { gap: 6px; padding: 6px; }
+
+/* Player area / hand — comfortable taps */
+body.opt-mobile .player-area {
+  padding: 8px 8px 10px;
+  position: sticky;
+  bottom: 0;
+  background: var(--bg);
+  z-index: 50;
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+body.opt-mobile .player-info-bar { font-size: 13px; gap: 8px; }
+body.opt-mobile .hand-zone {
+  gap: 6px;
+  padding-bottom: 6px;
+  min-height: calc(var(--card-h) + 14px);
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Action bar — bigger touch targets ≥44px tall */
+body.opt-mobile .action-bar { gap: 6px; margin-top: 10px; }
+body.opt-mobile .action-bar .btn-sm {
+  min-height: 44px;
+  padding: 10px 14px;
+  font-size: 14px;
+  border-radius: 10px;
+}
+body.opt-mobile .sort-group { gap: 4px; }
+body.opt-mobile .sort-group .btn-sm { min-width: 44px; padding: 10px 8px; }
+body.opt-mobile .drag-hint { display: none; }
+
+/* Chat panel — near-full width when open on a phone */
+body.opt-mobile .chat-panel {
+  width: calc(100vw - 28px);
+  height: 70dvh;
+}
+body.opt-mobile .chat-input { min-height: 40px; font-size: 15px; }
+body.opt-mobile .chat-send-btn { min-width: 44px; }
+body.opt-mobile .chat-fab { width: 56px; height: 56px; font-size: 26px; }
+
+/* Lobby — give the touch-friendly tap targets some headroom */
+body.opt-mobile .lobby-card .btn { padding: 12px 14px; font-size: 16px; min-height: 44px; }
+body.opt-mobile .icon-option { font-size: 22px; padding: 5px; }
+body.opt-mobile .icon-picker { max-height: 110px; }
+body.opt-mobile .solo-count-btn,
+body.opt-mobile .solo-diff-btn { min-height: 44px; }
+
+/* Wild modal + settings panel — wider on narrow screens */
+body.opt-mobile .wild-modal-box { width: calc(100vw - 24px); }
+body.opt-mobile .settings-panel {
+  width: calc(100vw - 16px);
+  max-height: 92dvh;
+}
+
+/* When the device is actually narrow, prefer the mobile defaults too */
+@media (max-width: 600px) {
+  .top-bar { height: 44px; padding: 0 10px; }
+  .turn-indicator { font-size: 14px; padding: 4px 8px; }
+}
+
+/* ══════════════════════════════════════════════
+   LAYOUT settings (radio group) + Fullscreen button
+════════════════════════════════════════════════ */
+.layout-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.layout-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.layout-option:hover { background: rgba(255,255,255,.07); }
+.layout-option input[type="radio"] {
+  grid-row: 1 / 3;
+  margin: 0;
+  accent-color: var(--gold);
+}
+.layout-option .layout-name { font-size: 13px; font-weight: 800; color: #eee; }
+.layout-option .layout-desc { font-size: 11px; color: #8899aa; }
+.layout-option:has(input:checked) {
+  border-color: var(--gold);
+  background: rgba(255,215,0,.10);
+}
+.fullscreen-btn {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 10px;
+  color: #ddd;
+  font: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.fullscreen-btn:hover { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.25); }
+
+/* '95 theme overrides for layout + fullscreen */
+body.theme-95 .layout-option {
+  background: #000;
+  border: 1px solid #003311;
+  border-radius: 0;
+  color: #009922;
+}
+body.theme-95 .layout-option .layout-name { color: #00ff41; }
+body.theme-95 .layout-option .layout-desc { color: #009922; }
+body.theme-95 .layout-option:has(input:checked) {
+  border-color: #00ff41;
+  background: rgba(0,255,65,.08);
+}
+body.theme-95 .fullscreen-btn {
+  background: #000;
+  border: 1px solid #00ff41;
+  border-radius: 0;
+  color: #00ff41;
+  font-family: 'Courier New', monospace;
+}
+body.theme-95 .fullscreen-btn:hover { background: rgba(0,255,65,.08); }
