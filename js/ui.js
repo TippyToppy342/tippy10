@@ -434,6 +434,11 @@ export function renderHand(localState) {
       }
     });
     if (isSelected) cEl.classList.add('selected');
+    // Just-drawn animation — lowers the new card into the hand so the player
+    // can see which card was added.
+    if (localState.justDrawnCardId === card.id) {
+      cEl.classList.add('card-just-drawn');
+    }
 
     // ── Drag-and-drop reordering ──
     cEl.draggable = true;

@@ -70,7 +70,8 @@ window.startSoloGame = function(humanName, humanIcon, aiConfig) {
   aiConfig.forEach((cfg, i) => {
     const aiId = newPlayerId('p_ai');
     order.push(aiId);
-    const meta = TIPPY_DIFFICULTIES[cfg.difficulty] || TIPPY_DIFFICULTIES.tippy;
+    // Fall back to Medium (Alert Tippy) for any unrecognised difficulty
+    const meta = TIPPY_DIFFICULTIES[cfg.difficulty] || TIPPY_DIFFICULTIES.alert;
     const suffix = aiConfig.length > 1 ? ` ${i + 1}` : '';
     players[aiId] = {
       name: meta.name + suffix,
@@ -142,6 +143,8 @@ export async function soloDraw(source) {
   data.turnPhase = 'play';
   localState.selectedCards = [];
   if (typeof window.applySortMode === 'function') window.applySortMode();
+  // Animate the just-drawn card lowering into the hand
+  if (typeof window.flagJustDrawnCard === 'function') window.flagJustDrawnCard(drawn.id);
   renderBoard(data, localState);
   renderHand(localState);
   updateActionButtons();
@@ -412,6 +415,7 @@ async function runAiTurnsUntilHuman() {
       if (data.currentTurn === localState.playerId) break;
       const ai = data.players[data.currentTurn];
       if (!ai || ai.isHuman) break;
+      ai.id = data.currentTurn; // make sure the AI knows its own ID for adapter calls
       await playAiTurn(ai, makeAiSoloAdapter());
       // If round/game ended during AI turn, stop
       const after = localState.gameData;
@@ -429,7 +433,19 @@ function makeAiSoloAdapter() {
       const dp = localState.gameData?.discardPile || [];
       return dp[dp.length - 1] || null;
     },
-    get melds() { return localState.gameData?.melds || {}; },
+    get melds()       { return localState.gameData?.melds       || {}; },
+    get players()     { return localState.gameData?.players     || {}; },
+    get playerOrder() { return localState.gameData?.playerOrder || []; },
+    get currentTurn() { return localState.gameData?.currentTurn; },
+    tippyChat(ai, text) {
+      // Personality line — posts as a real chat message from the AI (not a system event)
+      pushSoloChat(text, {
+        system: false,
+        playerId: ai.id || _findAiId(ai, localState.gameData),
+        name: ai.name,
+        icon: ai.icon,
+      });
+    },
     draw(ai, source) {
       const data = localState.gameData;
       const drawn = drawFromPile(data, source);

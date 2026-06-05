@@ -579,6 +579,8 @@ window.drawCard = async function(source) {
   localState.selectedCards = [];
   // Re-apply persistent sort (local only — Firebase just stores the card data, not order)
   applySortMode();
+  // Flag the new card for a "lowering into hand" animation on the next render
+  flagJustDrawnCard(draw.id);
   updates[`rooms/${localState.roomCode}/players/${localState.playerId}/hand`]      = localState.hand;
   updates[`rooms/${localState.roomCode}/players/${localState.playerId}/handCount`] = localState.hand.length;
   updates[`rooms/${localState.roomCode}/turnPhase`] = 'play';
@@ -587,6 +589,19 @@ window.drawCard = async function(source) {
   renderHand(localState);
   updateActionButtons();
 };
+
+// Mark the most recently drawn card so renderHand can animate it lowering
+// into the hand; clear the flag shortly after so re-renders don't replay it.
+let _justDrawnClearTimer = null;
+function flagJustDrawnCard(cardId) {
+  localState.justDrawnCardId = cardId;
+  if (_justDrawnClearTimer) clearTimeout(_justDrawnClearTimer);
+  _justDrawnClearTimer = setTimeout(() => {
+    localState.justDrawnCardId = null;
+    _justDrawnClearTimer = null;
+  }, 700);
+}
+window.flagJustDrawnCard = flagJustDrawnCard; // expose for solo.js
 
 // ─────────────────────────────────────────────
 //  LAY DOWN PHASE

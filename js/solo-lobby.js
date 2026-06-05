@@ -4,13 +4,13 @@
 // ═══════════════════════════════════════════
 
 const DIFFS = [
-  { key: 'sleepy',   name: 'Sleepy Tippy',     label: 'Easy',   icon: '😴', blurb: 'Naps a lot, plays whatever.' },
-  { key: 'tippy',    name: 'Tippy',            label: 'Medium', icon: '🐶', blurb: 'Knows the rules. Steady.' },
-  { key: 'gameface', name: 'Game-Face Tippy',  label: 'Hard',   icon: '👀', blurb: 'No mercy. Holds wilds, hoards skips.' },
+  { key: 'sleepy', name: 'Sleepy Tippy', label: 'Easy',   icon: '😴', blurb: 'Plays clean and steady.' },
+  { key: 'alert',  name: 'Alert Tippy',  label: 'Medium', icon: '👀', blurb: 'Watches everything. Hoards wilds.' },
+  { key: 'hungry', name: 'Hungry Tippy', label: 'Hard',   icon: '🦴', blurb: 'Ruthless. No wasted wilds, perfect plays.' },
 ];
 
 let _soloCount = 1;
-let _soloDifficulties = ['tippy']; // default difficulty per opponent
+let _soloDifficulties = ['alert']; // default difficulty per opponent (medium)
 
 window.showSoloSetup = function() {
   document.getElementById('solo-setup').style.display = '';
@@ -26,8 +26,8 @@ window.hideSoloSetup = function() {
 
 window.setSoloCount = function(n) {
   _soloCount = n;
-  // Resize the difficulties array, defaulting new slots to 'tippy'
-  while (_soloDifficulties.length < n) _soloDifficulties.push('tippy');
+  // Resize the difficulties array, defaulting new slots to 'alert' (Medium)
+  while (_soloDifficulties.length < n) _soloDifficulties.push('alert');
   _soloDifficulties.length = n;
   // Update button states
   document.querySelectorAll('.solo-count-btn').forEach(b => {
