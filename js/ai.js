@@ -214,8 +214,9 @@ function chooseDrawSource(ai, soloState, difficulty) {
     return 'discard';
   }
 
-  // Alert + Hungry: grab wilds from the discard
-  if (difficulty !== 'sleepy' && top.type === 'wild') return 'discard';
+  // All difficulties grab wilds from the discard — it's a no-brainer even for
+  // casual players, and ignoring a wild would feel obviously dumb.
+  if (top.type === 'wild') return 'discard';
 
   // Hungry: take from discard if it MEASURABLY advances phase progress
   if (difficulty === 'hungry' && !ai.phaseDone) {
@@ -318,30 +319,36 @@ function chooseDiscard(ai, soloState, difficulty) {
       if (skipInHand && nextPlayerIsThreat(ai, soloState)) return skipInHand;
 
       const candidates = nonWildNonSkip.length ? nonWildNonSkip : nonWild;
-      if (!ai.phaseDone) {
-        // Score each candidate: lower progressLoss = better, higher points = better
-        const baseScore = phaseProgressScore(ai.hand, ai.phase);
-        let best = candidates[0];
-        let bestRank = -Infinity;
-        for (const c of candidates) {
-          const remaining = ai.hand.filter(x => x.id !== c.id);
-          const newScore  = phaseProgressScore(remaining, ai.phase);
-          const progressLoss = baseScore - newScore;          // 0 = no loss
-          const rank = (cardPoints(c) * 1) - (progressLoss * 100);
-          if (rank > bestRank) { bestRank = rank; best = c; }
-        }
-        return best;
+
+      // Multi-factor ranking for each candidate:
+      //   + points        (we want to dump high-value cards)
+      //   − progressLoss  (don't damage our phase plan)
+      //   − opponentUseful (don't gift the next player a card they need)
+      const baseScore = ai.phaseDone ? 0 : phaseProgressScore(ai.hand, ai.phase);
+      let best = candidates[0];
+      let bestRank = -Infinity;
+      for (const c of candidates) {
+        const remaining = ai.hand.filter(x => x.id !== c.id);
+        const progressLoss = ai.phaseDone
+          ? 0
+          : (baseScore - phaseProgressScore(remaining, ai.phase));
+        const opUseful = opponentUsefulness(c, ai, soloState);
+        const rank = (cardPoints(c) * 1)        // dump high points
+                   - (progressLoss * 100)        // strongly avoid hurting our plan
+                   - (opUseful * 0.6);           // moderately avoid helping opponents
+        if (rank > bestRank) { bestRank = rank; best = c; }
       }
-      // Phase already laid down — just dump the highest-point card
-      return candidates[0];
+      return best;
     }
 
     return nonWild[0]; // alert: highest-point non-wild
   }
 
-  // ── Sleepy (Easy): prefer not to discard a wild but don't go to extremes ──
-  if (sorted[0]?.type === 'wild' && sorted.length > 1) return sorted[1];
-  return sorted[0];
+  // ── Sleepy (Easy): never discard a wild if there's any non-wild option. ──
+  // (Previous logic only checked sorted[0], so with 2+ wilds Sleepy would
+  // discard the second wild — silly even for Easy mode.)
+  const sleepyPick = sorted.find(c => c.type !== 'wild');
+  return sleepyPick || sorted[0]; // fall back to a wild only if hand is all wilds
 }
 
 // Threat assessment: is the player who'd receive a skip about to win or already
@@ -360,6 +367,47 @@ function nextPlayerIsThreat(ai, soloState) {
   const myPhase = ai.phase || 1;
   if ((nextP.phase || 1) - myPhase >= 2) return true;
   return false;
+}
+
+// How useful would this card be to the player whose turn comes next?
+// Higher = more useful (better for them, worse for us to give away).
+// Used by Hungry to avoid handing the next player exactly what they need.
+function opponentUsefulness(card, ai, soloState) {
+  if (card.type === 'skip') return 0;     // can't be picked up from discard
+  if (card.type === 'wild') return 1000;  // always gold for anyone
+
+  const order = soloState.playerOrder || [];
+  const myIdx = order.indexOf(ai.id);
+  if (myIdx < 0) return 0;
+  const nextPid = order[(myIdx + 1) % order.length];
+  const nextP   = soloState.players?.[nextPid];
+  if (!nextP) return 0;
+
+  const phase = nextP.phase || 1;
+  const phaseObj = PHASES[phase - 1];
+  if (!phaseObj) return 0;
+
+  let score = 0;
+  for (const part of phaseObj.parts) {
+    if (part.type === 'set') {
+      // Any number card could form a set — moderate value
+      score += 30;
+    } else if (part.type === 'run') {
+      // Middle numbers (3-10) participate in many possible runs of length ≥4
+      if (card.number >= 3 && card.number <= 10) score += 60;
+      else score += 20; // edges (1-2, 11-12) less versatile
+    } else if (part.type === 'color') {
+      // Color phase wants any card of any color
+      score += 50;
+    }
+  }
+
+  // If next player has already laid down, ANY card that matches their meld is gold
+  if (nextP.phaseDone) {
+    score += 40; // they can hit melds with almost anything
+  }
+
+  return score;
 }
 
 // ─────────────────────────────────────────────
@@ -404,6 +452,43 @@ function resolveWildHit(card, group) {
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Should Hungry lay down its phase RIGHT NOW, or wait a turn?
+// Laying down opens our melds to hits once opponents lay down their phases too.
+// Hungry delays when the move would mostly benefit opponents and there's no
+// urgency.
+function shouldHungryLayDownNow(ai, laydown, soloState) {
+  if (!laydown) return false;
+  const usedCount = laydown.flat().length;
+  const remainingAfter = ai.hand.length - usedCount;
+
+  // Always lay down if it puts us in striking distance of going out (≤1 card)
+  if (remainingAfter <= 1) return true;
+
+  // Examine opponents
+  const players = soloState.players || {};
+  const opponents = Object.entries(players)
+    .filter(([pid]) => pid !== ai.id)
+    .map(([, p]) => p);
+  if (!opponents.length) return true;
+
+  // If any opponent is close to going out (≤3 cards + laid down), race them
+  const anyClose = opponents.some(p => p.phaseDone && (p.handCount || 0) <= 3);
+  if (anyClose) return true;
+
+  // If NO opponent has laid down yet, our melds can't be hit yet — safe to lay
+  const anyLaidDown = opponents.some(p => p.phaseDone);
+  if (!anyLaidDown) return true;
+
+  // Opponents have laid down AND aren't close to going out — careful zone.
+  // Delay if the laydown uses many wilds OR leaves us with a fat hand the
+  // opponents could chip away at via hits.
+  const wildsUsed = laydown.flat().filter(c => c.type === 'wild').length;
+  if (wildsUsed >= 2) return false;
+  if (remainingAfter >= 4) return false;
+
+  return true;
+}
 
 // ─────────────────────────────────────────────
 //  Personality chat lines
@@ -474,7 +559,10 @@ export async function playAiTurn(ai, soloState, opts = {}) {
     const laydown = findPhaseLaydown(ai.hand, ai.phase, {
       preferFewWilds: difficulty === 'hungry',
     });
-    if (laydown) {
+    // Hungry is strategic about WHEN to lay down; others lay down ASAP.
+    const willLayDown = laydown && (difficulty !== 'hungry'
+      || shouldHungryLayDownNow(ai, laydown, soloState));
+    if (willLayDown) {
       const resolved = resolveWildsForLaydown(laydown, ai.phase);
       soloState.layDown(ai, resolved);
       await sleep(pace * 600);

@@ -2200,6 +2200,13 @@ body.opt-mobile {
   --card-w: 72px;
   --card-h: 104px;
 }
+/* Compact + mobile — slightly smaller than mobile default but still touch-friendly.
+   Without this rule opt-mobile would override opt-compact and the "Compact Hand"
+   toggle would do nothing on phones. */
+body.opt-mobile.opt-compact {
+  --card-w: 60px;
+  --card-h: 88px;
+}
 
 /* Top bar — slimmer, hide phase visual (already hidden under 640px),
    smaller turn indicator */
