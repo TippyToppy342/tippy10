@@ -115,14 +115,98 @@ function kCombinations(arr, k) {
 }
 
 // ─────────────────────────────────────────────
+//  Phase-progress score
+//  Measures how close the hand is to completing the phase. Higher = closer.
+//  Counts the largest set/run/color the hand can build for each phase part,
+//  plus 1 per wild card (wilds are universally useful).
+//  This lets the AI judge whether a candidate card MEANINGFULLY advances
+//  its plan, rather than just "matches something in hand".
+// ─────────────────────────────────────────────
+function phaseProgressScore(hand, phaseId) {
+  const phaseObj = PHASES[phaseId - 1];
+  if (!phaseObj) return 0;
+
+  const wilds = hand.filter(c => c.type === 'wild').length;
+  const numbers = hand.filter(c => c.type === 'number');
+  const used = new Set();
+  let total = 0;
+
+  for (const part of phaseObj.parts) {
+    const pool = numbers.filter(c => !used.has(c.id));
+
+    if (part.type === 'set') {
+      // Largest group by number
+      const buckets = new Map();
+      for (const c of pool) {
+        if (!buckets.has(c.number)) buckets.set(c.number, []);
+        buckets.get(c.number).push(c);
+      }
+      let best = [];
+      for (const arr of buckets.values()) {
+        if (arr.length > best.length) best = arr;
+      }
+      const take = Math.min(part.count, best.length);
+      total += take;
+      best.slice(0, take).forEach(c => used.add(c.id));
+    }
+    else if (part.type === 'color') {
+      // Largest group by color
+      const buckets = new Map();
+      for (const c of pool) {
+        if (!buckets.has(c.color)) buckets.set(c.color, []);
+        buckets.get(c.color).push(c);
+      }
+      let best = [];
+      for (const arr of buckets.values()) {
+        if (arr.length > best.length) best = arr;
+      }
+      const take = Math.min(part.count, best.length);
+      total += take;
+      best.slice(0, take).forEach(c => used.add(c.id));
+    }
+    else if (part.type === 'run') {
+      // Longest consecutive sequence (unique numbers)
+      const uniqueNums = [...new Set(pool.map(c => c.number))].sort((a, b) => a - b);
+      let bestLen = 0, bestEnd = -1;
+      let runLen = 1, runStart = 0;
+      for (let i = 1; i <= uniqueNums.length; i++) {
+        if (i < uniqueNums.length && uniqueNums[i] === uniqueNums[i - 1] + 1) {
+          runLen++;
+        } else {
+          if (runLen > bestLen) { bestLen = runLen; bestEnd = i - 1; }
+          runStart = i;
+          runLen = 1;
+        }
+      }
+      const take = Math.min(part.count, bestLen);
+      total += take;
+      // Mark the cards used by the best run
+      for (let i = 0; i < take; i++) {
+        const num = uniqueNums[bestEnd - take + 1 + i];
+        const c = pool.find(x => x.number === num && !used.has(x.id));
+        if (c) used.add(c.id);
+      }
+    }
+  }
+
+  // Each wild contributes ~1 toward progress (versatile)
+  total += wilds;
+  return total;
+}
+
+// ─────────────────────────────────────────────
 //  Draw source decision
+//
+//  Hungry rule: only take from discard if doing so STRICTLY ADVANCES phase
+//  progress (or completes the phase, or is a wild). Then a final predictive
+//  check ensures we never pick up a card we'd immediately discard back.
 // ─────────────────────────────────────────────
 function chooseDrawSource(ai, soloState, difficulty) {
   const top = soloState.topDiscard();
   if (!top) return 'draw';
-  if (top.type === 'skip') return 'draw'; // skips can't be picked up from discard
+  if (top.type === 'skip') return 'draw';
 
-  // All difficulties: take discard if it would complete the phase
+  // All difficulties: take discard if it would complete the phase NOW
   if (!ai.phaseDone) {
     const withTop = [...ai.hand, top];
     if (findPhaseLaydown(withTop, ai.phase)) return 'discard';
@@ -130,14 +214,20 @@ function chooseDrawSource(ai, soloState, difficulty) {
     return 'discard';
   }
 
-  // Alert + Hungry: also grab wilds from the discard (they're valuable)
+  // Alert + Hungry: grab wilds from the discard
   if (difficulty !== 'sleepy' && top.type === 'wild') return 'discard';
 
-  // Hungry: also grab if the card matches anything in our hand (set/run potential)
-  if (difficulty === 'hungry' && !ai.phaseDone && top.type === 'number') {
-    const matchesNumber = ai.hand.some(c => c.type === 'number' && c.number === top.number);
-    const matchesColor  = ai.hand.some(c => c.type === 'number' && c.color === top.color);
-    if (matchesNumber || matchesColor) return 'discard';
+  // Hungry: take from discard if it MEASURABLY advances phase progress
+  if (difficulty === 'hungry' && !ai.phaseDone) {
+    const before = phaseProgressScore(ai.hand, ai.phase);
+    const after  = phaseProgressScore([...ai.hand, top], ai.phase);
+    if (after > before) {
+      // Predictive sanity check: would we immediately discard this same card back?
+      // If so, picking it up is a wasted turn.
+      const simAi = { ...ai, hand: [...ai.hand, top] };
+      const simDiscard = chooseDiscard(simAi, soloState, difficulty);
+      if (!simDiscard || simDiscard.id !== top.id) return 'discard';
+    }
   }
 
   return 'draw';
@@ -217,20 +307,33 @@ function chooseDiscard(ai, soloState, difficulty) {
       return sorted[0];
     }
 
-    // Hungry: also hold skips unless the next player is a threat
+    // Hungry: pick the card that hurts phase progress the LEAST. Break ties by
+    // highest points (dump the most valuable disposable card). Skips are held
+    // unless the next player is a real threat — same as before.
     if (difficulty === 'hungry') {
       const nonWildNonSkip = nonWild.filter(c => c.type !== 'skip');
-      if (nonWildNonSkip.length > 0) {
-        // Strategic skip play: if the next player is a "threat" (close to going out
-        // or leading on phases), dump the skip on them. Otherwise hoard.
-        const skipInHand = nonWild.find(c => c.type === 'skip');
-        if (skipInHand && nextPlayerIsThreat(ai, soloState)) {
-          return skipInHand;
+      const skipInHand = nonWild.find(c => c.type === 'skip');
+
+      // Strategic skip play takes priority when the next player is threatening
+      if (skipInHand && nextPlayerIsThreat(ai, soloState)) return skipInHand;
+
+      const candidates = nonWildNonSkip.length ? nonWildNonSkip : nonWild;
+      if (!ai.phaseDone) {
+        // Score each candidate: lower progressLoss = better, higher points = better
+        const baseScore = phaseProgressScore(ai.hand, ai.phase);
+        let best = candidates[0];
+        let bestRank = -Infinity;
+        for (const c of candidates) {
+          const remaining = ai.hand.filter(x => x.id !== c.id);
+          const newScore  = phaseProgressScore(remaining, ai.phase);
+          const progressLoss = baseScore - newScore;          // 0 = no loss
+          const rank = (cardPoints(c) * 1) - (progressLoss * 100);
+          if (rank > bestRank) { bestRank = rank; best = c; }
         }
-        return nonWildNonSkip[0]; // highest-point non-wild non-skip
+        return best;
       }
-      // Only skips and/or wilds left — prefer skip over wild
-      return nonWild[0];
+      // Phase already laid down — just dump the highest-point card
+      return candidates[0];
     }
 
     return nonWild[0]; // alert: highest-point non-wild
