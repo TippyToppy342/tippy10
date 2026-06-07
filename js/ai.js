@@ -470,14 +470,15 @@ function shouldStrategicallyLayDownNow(ai, laydown, soloState, difficulty) {
   const anyLaidDown = opponents.some(p => p.phaseDone);
   if (!anyLaidDown) return true;
 
-  // Careful zone — opponents have laid down and aren't close to going out
+  // Careful zone — opponents have laid down. Hungry plays aggressive Phase 10:
+  // lay down ASAP since the opponent is also racing. Sneaky stays cautious.
   const wildsUsed = laydown.flat().filter(c => c.type === 'wild').length;
   if (difficulty === 'hungry') {
-    // Boss won't trade ANY wilds for an exposed meld unless going out is close
-    if (wildsUsed >= 1) return false;
-    if (remainingAfter >= 3) return false;
+    // Hungry only delays in the most extreme cases — way too many wilds used AND
+    // a fat hand remaining. Otherwise, race for the win.
+    if (wildsUsed >= 3 && remainingAfter >= 6) return false;
   } else {
-    // Hungry tolerates one wild
+    // Sneaky stays cautious
     if (wildsUsed >= 2) return false;
     if (remainingAfter >= 4) return false;
   }
@@ -485,17 +486,21 @@ function shouldStrategicallyLayDownNow(ai, laydown, soloState, difficulty) {
 }
 
 // Find the laydown subset that LEAVES THE BEST REMAINING HAND.
-// Boss picks subsets that:
-//   • use the fewest wilds in the laydown                (saves them for later)
-//   • leave the most wilds in hand                       (flexibility for hits)
-//   • leave the most skips in hand                       (offensive cards)
-//   • leave the most cards that can hit existing melds   (dump-ready)
-// Falls back to a regular validatePhase if no melds exist yet.
+// Hungry picks subsets that:
+//   • result in an immediate or near go-out      (huge bonus)
+//   • use the fewest wilds in the laydown        (saves them for later)
+//   • leave the most wilds in hand               (flexibility for hits)
+//   • leave the most skips in hand               (offensive cards)
+//   • leave the most cards that can hit melds    (dump-ready)
 function findHungryLaydown(hand, phaseId, soloState) {
   const phaseObj = PHASES[phaseId - 1];
   if (!phaseObj) return null;
   const need = phaseObj.parts.reduce((s, p) => s + p.count, 0);
   if (hand.length < need) return null;
+
+  // Build a hypothetical melds map including this laydown so canHit calls
+  // can see the cards we're laying down too.
+  const baseMelds = soloState.melds || {};
 
   const combos = kCombinations(hand, need);
   let best = null;
@@ -505,17 +510,54 @@ function findHungryLaydown(hand, phaseId, soloState) {
     if (!result) continue;
     const usedIds = new Set(result.flat().map(c => c.id));
     const remaining = hand.filter(c => !usedIds.has(c.id));
+
+    // What melds will exist AFTER this laydown — the AI can hit its own melds too
+    const ourMeldsAfter = result.map((cards, i) => ({
+      cards,
+      partType: phaseObj.parts[i].type,
+    }));
+    const hittableAfter = (card) => {
+      if (card.type === 'skip') return false;
+      for (const owner of Object.keys(baseMelds)) {
+        for (const g of (baseMelds[owner] || [])) {
+          if (canHit(card, g.cards || [], { type: g.partType })) return true;
+        }
+      }
+      for (const g of ourMeldsAfter) {
+        if (canHit(card, g.cards, { type: g.partType })) return true;
+      }
+      return false;
+    };
+
     const wildsInLaydown   = result.flat().filter(c => c.type === 'wild').length;
     const wildsRemaining   = remaining.filter(c => c.type === 'wild').length;
     const skipsRemaining   = remaining.filter(c => c.type === 'skip').length;
-    const hittableRemaining = remaining.filter(c =>
-      c.type === 'number' && canHitAnyMeld(c, soloState)
-    ).length;
+    const hittableCount    = remaining.filter(c => hittableAfter(c)).length;
 
-    const score = wildsRemaining   * 60
-                + skipsRemaining   * 25
-                + hittableRemaining * 15
-                - wildsInLaydown   * 40;
+    // GO-OUT BONUS — the whole point of Phase 10 is going out first.
+    // The fewer cards left, the closer we are. Massive bonus if we can dump
+    // the rest as hits and discard one to finish.
+    let goOutBonus = 0;
+    const rem = remaining.length;
+    if (rem === 1) {
+      // Immediate go-out: lay down → discard the one remaining card. PERFECT.
+      goOutBonus = 5000;
+    } else if (rem === 2 && hittableCount >= 1) {
+      // One hit + discard = go-out.
+      goOutBonus = 3000;
+    } else if (rem === 3 && hittableCount >= 2) {
+      // Two hits + discard = go-out.
+      goOutBonus = 1500;
+    } else if (rem <= 4 && hittableCount >= rem - 1) {
+      // Multi-hit go-out plausible.
+      goOutBonus = 600;
+    }
+
+    const score = goOutBonus
+                + wildsRemaining    * 60
+                + skipsRemaining    * 25
+                + hittableCount     * 30      // doubled — hits are how we go out
+                - wildsInLaydown    * 40;
     if (score > bestScore) { bestScore = score; best = result; }
   }
   return best;
