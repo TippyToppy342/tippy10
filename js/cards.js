@@ -87,6 +87,11 @@ export function renderCard(card, opts = {}) {
 }
 
 export function validatePhase(cards, phaseId) {
+  // Skip cards are never valid in any phase part — they only get discarded.
+  // Without this guard, matchesPart treated skip's number=0 as a regular value,
+  // so [skip, 1, 2, 3] passed as a "run of 4 starting at 0". That bug let the
+  // AI lay down skips as part of runs.
+  if (cards.some(c => c.type === 'skip')) return null;
   const phase = PHASES[phaseId - 1];
   return tryAssign(cards, phase.parts, []);
 }
@@ -106,8 +111,10 @@ function tryAssign(cards, parts, assignment) {
 }
 
 function matchesPart(cards, part) {
+  // Defense in depth: even if a skip somehow reaches here, reject.
+  if (cards.some(c => c.type === 'skip')) return false;
   const wilds = cards.filter(c => c.type === 'wild');
-  const real   = cards.filter(c => c.type !== 'wild');
+  const real  = cards.filter(c => c.type === 'number'); // strictly number cards only
   if (part.type === 'set') {
     const nums = real.map(c => c.number);
     const unique = [...new Set(nums)];
@@ -138,7 +145,28 @@ function combinations(arr, k) {
   return [...withFirst, ...withoutFirst];
 }
 
+// Sort the cards in a meld group for display.
+//   - Runs:        sort ascending by declaredValue (or number for non-wild)
+//   - Sets/colors: numeric ascending, wilds drop to the end
+// Returns a new array; doesn't mutate `group`.
+export function sortGroupForDisplay(group, partType) {
+  if (!Array.isArray(group)) return group;
+  return group.slice().sort((a, b) => {
+    if (partType === 'run') {
+      return (a.declaredValue ?? a.number) - (b.declaredValue ?? b.number);
+    }
+    // sets and colors: wilds at the back, otherwise ascending by number
+    const aWild = a.type === 'wild';
+    const bWild = b.type === 'wild';
+    if (aWild && !bWild) return  1;
+    if (bWild && !aWild) return -1;
+    return (a.number || 0) - (b.number || 0);
+  });
+}
+
 export function canHit(card, meldGroup, part) {
+  // Skips can never extend a meld.
+  if (card.type === 'skip') return false;
   if (part.type === 'set') {
     if (card.type === 'wild') return true;
     const nums = meldGroup.filter(c=>c.type!=='wild').map(c=>c.number);

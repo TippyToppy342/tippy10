@@ -5,12 +5,12 @@
 
 const DIFFS = [
   { key: 'sleepy', name: 'Sleepy Tippy', label: 'Easy',   icon: '😴', blurb: 'Plays clean and steady.' },
-  { key: 'alert',  name: 'Alert Tippy',  label: 'Medium', icon: '👀', blurb: 'Watches everything. Hoards wilds.' },
-  { key: 'hungry', name: 'Hungry Tippy', label: 'Hard',   icon: '🦴', blurb: 'Ruthless. No wasted wilds, perfect plays.' },
+  { key: 'sneaky', name: 'Sneaky Tippy', label: 'Medium', icon: '🦊', blurb: 'Slips cards away when you\'re not looking.' },
+  { key: 'hungry', name: 'Hungry Tippy', label: 'Hard',   icon: '🦴', blurb: 'Out for blood. Reads the table, never gifts you a card.' },
 ];
 
 let _soloCount = 1;
-let _soloDifficulties = ['alert']; // default difficulty per opponent (medium)
+let _soloDifficulties = ['sneaky']; // default difficulty per opponent (medium)
 
 window.showSoloSetup = function() {
   document.getElementById('solo-setup').style.display = '';
@@ -26,8 +26,8 @@ window.hideSoloSetup = function() {
 
 window.setSoloCount = function(n) {
   _soloCount = n;
-  // Resize the difficulties array, defaulting new slots to 'alert' (Medium)
-  while (_soloDifficulties.length < n) _soloDifficulties.push('alert');
+  // Resize the difficulties array, defaulting new slots to 'sneaky' (Medium)
+  while (_soloDifficulties.length < n) _soloDifficulties.push('sneaky');
   _soloDifficulties.length = n;
   // Update button states
   document.querySelectorAll('.solo-count-btn').forEach(b => {

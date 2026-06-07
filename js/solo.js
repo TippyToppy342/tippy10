@@ -11,7 +11,7 @@
 // and delegate here instead of writing to Firebase.
 
 import { localState, updateActionButtons } from './game.js';
-import { buildDeck, shuffle, cardPoints, validatePhase, canHit, firebaseToArray, PHASES } from './cards.js';
+import { buildDeck, shuffle, cardPoints, validatePhase, canHit, firebaseToArray, PHASES, sortGroupForDisplay } from './cards.js';
 import { renderBoard, renderHand, showMessage, showScreen, showTippyPopup, showRoundEndScreen } from './ui.js';
 import { playAiTurn, TIPPY_DIFFICULTIES } from './ai.js';
 
@@ -70,8 +70,8 @@ window.startSoloGame = function(humanName, humanIcon, aiConfig) {
   aiConfig.forEach((cfg, i) => {
     const aiId = newPlayerId('p_ai');
     order.push(aiId);
-    // Fall back to Medium (Alert Tippy) for any unrecognised difficulty
-    const meta = TIPPY_DIFFICULTIES[cfg.difficulty] || TIPPY_DIFFICULTIES.alert;
+    // Fall back to Medium (Sneaky Tippy) for any unrecognised difficulty
+    const meta = TIPPY_DIFFICULTIES[cfg.difficulty] || TIPPY_DIFFICULTIES.sneaky;
     const suffix = aiConfig.length > 1 ? ` ${i + 1}` : '';
     players[aiId] = {
       name: meta.name + suffix,
@@ -244,9 +244,7 @@ export async function soloHitMeld(ownerId, groupIndex) {
   }
 
   group.cards.push(cardToAdd);
-  if (group.partType === 'run') {
-    group.cards.sort((a, b) => (a.declaredValue ?? a.number) - (b.declaredValue ?? b.number));
-  }
+  group.cards = sortGroupForDisplay(group.cards, group.partType);
   const newHand = localState.hand.filter(c => c.id !== card.id);
   data.players[localState.playerId].hand = newHand;
   data.players[localState.playerId].handCount = newHand.length;
@@ -470,7 +468,9 @@ function makeAiSoloAdapter() {
         partIndex: i,
         partType:  phaseObj.parts[i].type,
         partCount: phaseObj.parts[i].count,
-        cards:     g,
+        // Sort cards for display so the meld reads cleanly (numbers ascending,
+        // wilds last for sets/colors; numeric order for runs)
+        cards:     sortGroupForDisplay(g, phaseObj.parts[i].type),
       }));
       showTippyPopup(`${ai.name} — Phase down! 🐾`, 'images/tippy/tippy-happy.jpeg');
       tippyNarrate(`🎯 ${ai.name} laid down Phase ${ai.phase}!`);
@@ -480,9 +480,7 @@ function makeAiSoloAdapter() {
       const data = localState.gameData;
       const group = data.melds[ownerId][groupIndex];
       group.cards.push(card);
-      if (group.partType === 'run') {
-        group.cards.sort((a, b) => (a.declaredValue ?? a.number) - (b.declaredValue ?? b.number));
-      }
+      group.cards = sortGroupForDisplay(group.cards, group.partType);
       ai.hand = ai.hand.filter(c => c.id !== card.id);
       ai.handCount = ai.hand.length;
       renderBoard(data, localState);

@@ -4,7 +4,7 @@
       "$roomCode": {
         ".read":     "auth != null",
         ".write":    "auth != null",
-        ".validate": "$roomCode.matches(/^[A-Z0-9]{3,8}$/)",
+        ".validate": "$roomCode.matches(/^[A-Z0-9]{3,16}$/)",
 
         "chat": {
           "$msgId": {

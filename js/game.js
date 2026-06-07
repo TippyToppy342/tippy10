@@ -5,7 +5,7 @@
 import { db, authReady } from './firebase-config.js';
 import { ref, set, get, update, remove, onValue, push } from
   'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
-import { buildDeck, shuffle, cardPoints, validatePhase, canHit, firebaseToArray, PHASES } from './cards.js';
+import { buildDeck, shuffle, cardPoints, validatePhase, canHit, firebaseToArray, PHASES, sortGroupForDisplay } from './cards.js';
 import { renderBoard, renderHand, showMessage, showScreen, showTippyPopup, showRoundEndScreen } from './ui.js';
 
 // ── Local state ──
@@ -186,7 +186,11 @@ async function declareWildsIfNeeded(resultGroups, phaseObj) {
   for (let i = 0; i < resultGroups.length; i++) {
     const group = resultGroups[i];
     const part  = phaseObj.parts[i];
-    if (part.type !== 'run') { out.push(group); continue; }
+    if (part.type !== 'run') {
+      // Sets and colors: sort by number, wilds at the end, so the meld reads cleanly
+      out.push(sortGroupForDisplay(group, part.type));
+      continue;
+    }
     const wilds = group.filter(c => c.type === 'wild');
     if (!wilds.length) {
       // Sort even no-wild runs — player may have selected cards in any order
@@ -742,9 +746,8 @@ window.hitMeld = async function(ownerId, groupIndex) {
   group.cards.push(cardToAdd);
 
   // Re-sort run so the new card lands in the right position
-  if (group.partType === 'run') {
-    group.cards.sort((a, b) => (a.declaredValue ?? a.number) - (b.declaredValue ?? b.number));
-  }
+  // Re-sort the group after the hit so the meld stays in display order
+  group.cards = sortGroupForDisplay(group.cards, group.partType);
   groups[groupIndex] = group;
   meldsRaw[ownerId]  = groups;
 
