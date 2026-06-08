@@ -470,5 +470,17 @@
 <script type="module" src="js/solo.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/solo-lobby.js"></script>
+
+<!-- Register the service worker so Chrome on Android offers the "Install app" prompt.
+     Silently no-ops on browsers that don't support service workers. -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {
+        /* registration failed — non-critical, the app still works */
+      });
+    });
+  }
+</script>
 </body>
 </html>
