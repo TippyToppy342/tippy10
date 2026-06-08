@@ -1,0 +1,51 @@
+{
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "database.rules.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      { "source": "**", "destination": "/index.html" }
+    ],
+    "headers": [
+      {
+        "source": "/sw.js",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+          { "key": "Service-Worker-Allowed", "value": "/" }
+        ]
+      },
+      {
+        "source": "/manifest.webmanifest",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+          { "key": "Content-Type", "value": "application/manifest+json; charset=utf-8" }
+        ]
+      },
+      {
+        "source": "/index.html",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+        ]
+      },
+      {
+        "source": "**/*.@(js|css)",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=300, must-revalidate" }
+        ]
+      },
+      {
+        "source": "**/*.@(png|jpg|jpeg|webp|svg|ico)",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=86400" }
+        ]
+      }
+    ]
+  },
+  "database": {
+    "rules": "database.rules.json"
+  }
+}
