@@ -242,6 +242,12 @@ if (typeof document !== 'undefined') {
   ['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => {
     document.addEventListener(ev, () => syncFullscreenUi());
   });
+
+  // iOS Safari respects the viewport meta + these gesture handlers together to
+  // block pinch-zoom. Without them, players accidentally zoom in mid-game.
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach(ev => {
+    document.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
+  });
 }
 
 // ── Init on DOM ready ─────────────────────────

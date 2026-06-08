@@ -276,6 +276,9 @@ export function renderBoard(data, localState) {
   // Scoreboard strip
   renderScoreboard(data, myId);
 
+  // Rotation order
+  renderRotationStrip(data, myId);
+
   // Opponents
   renderOpponents(data, myId);
 
@@ -292,6 +295,38 @@ export function renderBoard(data, localState) {
   // My hand
   renderHand(localState);
   updateActionButtons();
+}
+
+// ── Turn rotation strip — shows playerOrder, highlights whose turn it is ──
+function renderRotationStrip(data, myId) {
+  const el = document.getElementById('rotation-strip');
+  if (!el) return;
+  const order = firebaseToArray(data.playerOrder || []);
+  // Auto-hide for 1v1 — rotation is trivially obvious
+  if (order.length <= 2) { el.style.display = 'none'; return; }
+
+  el.style.display = '';
+  const parts = [];
+  order.forEach((pid, i) => {
+    const p = data.players[pid];
+    if (!p) return;
+    const isMe   = pid === myId;
+    const active = pid === data.currentTurn;
+    const label  = isMe ? 'You' : (p.name || 'Player');
+    parts.push(
+      `<span class="rot-player${active ? ' active' : ''}" title="${label}">${p.icon || '🎮'} ${escapeHtml(label)}</span>`
+    );
+    if (i < order.length - 1) parts.push('<span class="rot-arrow">▶</span>');
+  });
+  // Wrap around indicator (back to first)
+  parts.push('<span class="rot-arrow">↻</span>');
+  el.innerHTML = parts.join('');
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
 }
 
 // ── Scoreboard strip ──

@@ -358,6 +358,7 @@ window.createRoom = async function() {
   const roomData = {
     host: localState.playerId,
     status: 'waiting',
+    skipRule: 'next',                  // host can toggle in the waiting room
     players: {
       [localState.playerId]: { name, icon, phase: 1, score: 0, handCount: 0, phaseDone: false }
     },
@@ -470,6 +471,9 @@ function handleRoomUpdate(data) {
       if (currIdKey !== newIdKey) {
         if (localState.hand.length === 0) {
           localState.hand = newHand;
+          // Fresh round / fresh deal — re-apply the player's persistent sort mode
+          // so cards arrive pre-sorted instead of in deck order
+          applySortMode();
         } else {
           // Preserve local order; keep existing cards in place, append new ones
           const newIdSet = new Set(newHand.map(c => c.id));
@@ -511,6 +515,27 @@ function updateWaitingUI(data) {
     btnStart.style.display = 'none';
     document.getElementById('waiting-msg').textContent = 'Waiting for host to start…';
   }
+
+  // Skip rule picker — host can choose; others see the current rule as a hint.
+  const currentRule = data.skipRule || 'next';
+  const skipRuleHost = document.getElementById('waiting-skip-rule');
+  const skipRuleInfo = document.getElementById('waiting-skip-info');
+  if (localState.isHost) {
+    if (skipRuleHost) {
+      skipRuleHost.style.display = '';
+      skipRuleHost.querySelectorAll('.skip-rule-btn').forEach(b => {
+        b.classList.toggle('selected', b.dataset.rule === currentRule);
+      });
+    }
+    if (skipRuleInfo) skipRuleInfo.style.display = 'none';
+  } else {
+    if (skipRuleHost) skipRuleHost.style.display = 'none';
+    if (skipRuleInfo) {
+      const label = currentRule === 'pick' ? 'Pick who to skip' : 'Always next player';
+      skipRuleInfo.textContent = `Skip Card Rule: ${label}`;
+      skipRuleInfo.style.display = '';
+    }
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -544,6 +569,7 @@ window.startGame = async function() {
     [`rooms/${localState.roomCode}/melds`]:        {},
     [`rooms/${localState.roomCode}/handNum`]:      1,
     [`rooms/${localState.roomCode}/theme`]:        window.getSettings?.()?.theme || 'standard',
+    [`rooms/${localState.roomCode}/skipRule`]:     data.skipRule || 'next',
   });
   postSystemChatMessage('🐾 Round 1 begins — good luck!');
 };
@@ -782,20 +808,30 @@ window.discardSelected = async function() {
 
   const order = firebaseToArray(data.playerOrder);
   const myIdx = order.indexOf(localState.playerId);
-  let nextIdx = (myIdx + 1) % order.length;
 
+  // For skip cards: pick the target (might involve a modal), then set their
+  // skipNext flag. Turn advancement honours the flag uniformly.
+  let skippedPid = null;
+  let skippedName = null;
   if (card.type === 'skip') {
-    // Capture skipped player BEFORE we advance the index again
-    const skippedIdx    = (myIdx + 1) % order.length;
-    const skippedName   = data.players?.[order[skippedIdx]]?.name || 'Someone';
-    nextIdx = (nextIdx + 1) % order.length;
-    const myName = localState.gameData?.players?.[localState.playerId]?.name || 'Someone';
+    const eligible = order.filter(pid => pid !== localState.playerId);
+    if (data.skipRule === 'pick' && eligible.length > 1) {
+      skippedPid = await window.showSkipTargetModal(eligible, data.players || {});
+    } else {
+      skippedPid = order[(myIdx + 1) % order.length];
+    }
+    skippedName = data.players?.[skippedPid]?.name || 'Someone';
+    const myName = data.players?.[localState.playerId]?.name || 'Someone';
     const sm = nextSkipMoment();
-    await broadcastPopup(`${myName}: ${sm.text}`, sm.img);
+    await broadcastPopup(`⊘ ${myName} skipped ${skippedName}! ${sm.text}`, sm.img);
     postSystemChatMessage(`⊘ ${myName} skipped ${skippedName}`);
   }
 
-  const nextPlayer   = order[nextIdx];
+  // Compute the next turn, honouring all skipNext flags (including the one
+  // we may have just set above on the chosen target).
+  const flagOverride = skippedPid ? { [skippedPid]: true } : {};
+  const nextPlayer = advanceTurnPidMP(order, data.players || {}, myIdx, flagOverride);
+
   const newHand      = localState.hand.filter(c => c.id !== card.id);
   const discardPile  = [...firebaseToArray(data.discardPile || []), card];
   localState.hand = newHand;
@@ -808,6 +844,10 @@ window.discardSelected = async function() {
     [`rooms/${localState.roomCode}/currentTurn`]:                               nextPlayer,
     [`rooms/${localState.roomCode}/turnPhase`]:                                 'draw',
   };
+  // Persist + consume skipNext flag for the chosen target
+  if (skippedPid) {
+    updates[`rooms/${localState.roomCode}/players/${skippedPid}/skipNext`] = false;
+  }
 
   if (newHand.length === 0) {
     await handleGoOut(data, updates);
@@ -901,6 +941,8 @@ window.startNextRound = async function() {
     pos += 10;
     updates[`rooms/${localState.roomCode}/players/${pid}/hand`]      = hand;
     updates[`rooms/${localState.roomCode}/players/${pid}/handCount`] = 10;
+    // Clear any pending skipNext flags from the previous round
+    updates[`rooms/${localState.roomCode}/players/${pid}/skipNext`]  = false;
   }
   const drawPile   = deck.slice(pos);
   const topDiscard = drawPile.pop();
@@ -990,6 +1032,15 @@ window.setRoomTheme = async function(theme) {
   if (!localState.roomCode || !localState.isHost) return;
   try {
     await update(ref(db), { [`rooms/${localState.roomCode}/theme`]: theme });
+  } catch(e) { /* non-critical */ }
+};
+
+/** Host sets the skip-card rule from the waiting room before game starts */
+window.setHostSkipRule = async function(rule) {
+  if (!localState.roomCode || !localState.isHost) return;
+  if (rule !== 'next' && rule !== 'pick') return;
+  try {
+    await update(ref(db), { [`rooms/${localState.roomCode}/skipRule`]: rule });
   } catch(e) { /* non-critical */ }
 };
 
@@ -1523,6 +1574,56 @@ window.sendChat = async function() {
     // Restore text so the user can retry
     if (input && !input.value) input.value = text;
   }
+};
+
+// Multiplayer turn advancement that respects per-player skipNext flags.
+// `flagOverride` lets the caller set a one-shot skip on a target the discard
+// just committed (since the Firebase write may not have propagated yet).
+function advanceTurnPidMP(order, players, fromIdx, flagOverride = {}) {
+  let idx = (fromIdx + 1) % order.length;
+  let safety = order.length + 2;
+  while (safety-- > 0) {
+    const pid = order[idx];
+    const p   = players[pid];
+    const skipped = (flagOverride[pid] === true) || (p && p.skipNext === true);
+    if (skipped) {
+      idx = (idx + 1) % order.length;
+      continue;
+    }
+    return pid;
+  }
+  return order[idx];
+}
+
+// ─────────────────────────────────────────────
+//  SKIP TARGET MODAL — used when skipRule === 'pick'
+//  Returns a Promise<playerId> for the chosen target.
+// ─────────────────────────────────────────────
+window.showSkipTargetModal = function(eligiblePlayerIds, playersMap) {
+  return new Promise(resolve => {
+    const modal = document.getElementById('skip-target-modal');
+    const list  = document.getElementById('skip-target-list');
+    if (!modal || !list) { resolve(eligiblePlayerIds[0]); return; }
+    list.innerHTML = '';
+    for (const pid of eligiblePlayerIds) {
+      const p = playersMap[pid];
+      if (!p) continue;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'skip-target-option';
+      const phaseLabel = `Phase ${Math.min(p.phase || 1, 10)}`;
+      const cardsLabel = `${p.handCount || 0} card${(p.handCount || 0) === 1 ? '' : 's'}`;
+      btn.innerHTML =
+        `<span>${p.icon || '🎮'} ${(p.name || 'Player').replace(/[<>&]/g, '')}</span>`
+        + `<span class="skip-target-info">${phaseLabel} · ${cardsLabel}</span>`;
+      btn.onclick = () => {
+        modal.classList.remove('show');
+        resolve(pid);
+      };
+      list.appendChild(btn);
+    }
+    modal.classList.add('show');
+  });
 };
 
 // ─────────────────────────────────────────────

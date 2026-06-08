@@ -4,6 +4,11 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Disable accidental double-tap-zoom on phones and remove the 300ms tap delay.
+   Combined with the viewport meta + the JS gesture blockers in settings.js,
+   this fully suppresses pinch / double-tap zoom on iOS Safari. */
+html, body { touch-action: manipulation; }
+
 :root {
   --red:    #E63946;
   --blue:   #3A86FF;
@@ -245,6 +250,107 @@ body.theme-95 .solo-diff-btn.selected {
 }
 body.theme-95 .solo-opp-label { color: #009922; }
 
+/* ── Skip card rule picker (used in both solo setup and waiting room) ── */
+.skip-rule-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.skip-rule-btn {
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.10);
+  color: #bbb;
+  padding: 8px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  font-size: 12px;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.skip-rule-btn:hover { background: rgba(255,255,255,.08); }
+.skip-rule-btn.selected {
+  background: rgba(255,215,0,.18);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.waiting-skip-rule {
+  margin: 16px auto 4px;
+  max-width: 360px;
+}
+.waiting-skip-rule .settings-section-label {
+  font-size: 12px; font-weight: 700; color: #8899aa;
+  letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;
+  text-align: center;
+}
+body.theme-95 .skip-rule-btn {
+  background: #000; border: 1px solid #003311;
+  border-radius: 0; color: #009922;
+  font-family: 'Courier New', monospace;
+}
+body.theme-95 .skip-rule-btn.selected {
+  background: rgba(0,255,65,.12);
+  border-color: #00ff41;
+  color: #00ff41;
+}
+
+/* ── Skip target modal (opens when player needs to choose who to skip) ── */
+.skip-target-modal {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.8);
+  display: none; align-items: center; justify-content: center;
+  z-index: 410;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+}
+.skip-target-modal.show { display: flex; }
+.skip-target-box {
+  background: var(--surface);
+  border: 2px solid var(--skip);
+  border-radius: 20px;
+  padding: 20px 22px 18px;
+  width: 380px; max-width: 94vw;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,.7);
+}
+.skip-target-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 26px;
+  letter-spacing: 1.5px;
+  color: var(--skip);
+  margin-bottom: 4px;
+}
+.skip-target-hint { color: #8899aa; font-size: 13px; margin-bottom: 12px; }
+.skip-target-list { display: flex; flex-direction: column; gap: 8px; }
+.skip-target-option {
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  font-size: 15px;
+  color: #eee;
+  transition: background .15s, border-color .15s, transform .08s;
+}
+.skip-target-option:hover { background: rgba(247,127,0,.15); border-color: var(--skip); }
+.skip-target-option:active { transform: scale(.97); }
+.skip-target-option .skip-target-info {
+  font-size: 11px; color: #8899aa; font-weight: 700;
+}
+body.theme-95 .skip-target-box {
+  background: #000; border-color: #00ff41; border-radius: 0;
+}
+body.theme-95 .skip-target-title { color: #00ff41; font-family: 'VT323', monospace; text-shadow: 0 0 8px #00ff41; }
+body.theme-95 .skip-target-hint { color: #009922; }
+body.theme-95 .skip-target-option {
+  background: #000; border: 1px solid #003311; border-radius: 0; color: #00ff41;
+  font-family: 'Courier New', monospace;
+}
+body.theme-95 .skip-target-option:hover { background: rgba(0,255,65,.1); border-color: #00ff41; }
+body.theme-95 .skip-target-option .skip-target-info { color: #009922; }
+
 /* ═══════════════════════════════════════════
    WAITING ROOM
 ═══════════════════════════════════════════ */
@@ -349,6 +455,51 @@ body.theme-95 .solo-opp-label { color: #009922; }
   flex-shrink: 0;
   scrollbar-width: none;
 }
+
+/* ── Turn rotation strip — shows playerOrder + highlights whose turn it is ── */
+.rotation-strip {
+  width: 100%;
+  padding: 4px 12px;
+  display: flex; flex-wrap: nowrap;
+  align-items: center; justify-content: center;
+  gap: 6px;
+  flex-shrink: 0;
+  background: rgba(0,0,0,.15);
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  overflow-x: auto;
+  scrollbar-width: none;
+  font-size: 11px; font-weight: 700;
+}
+.rotation-strip::-webkit-scrollbar { display: none; }
+.rot-player {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: #8899aa;
+  background: transparent;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  transition: background .2s, color .2s, border-color .2s;
+}
+.rot-player.active {
+  background: rgba(255,215,0,.18);
+  color: var(--gold);
+  border-color: rgba(255,215,0,.45);
+}
+.rot-arrow {
+  color: #445;
+  font-size: 10px;
+  user-select: none;
+}
+body.theme-95 .rotation-strip { background: #000; border-bottom-color: #002200; }
+body.theme-95 .rot-player { color: #009922; }
+body.theme-95 .rot-player.active {
+  background: rgba(0,255,65,.12);
+  color: #00ff41;
+  border-color: #00ff41;
+  border-radius: 0;
+}
+body.theme-95 .rot-arrow { color: #003311; }
 .opponent-panel {
   background: var(--surface);
   border-radius: 10px; padding: 6px 10px;
@@ -468,6 +619,12 @@ body.theme-95 .solo-opp-label { color: #009922; }
   flex: 1;
   display: flex; flex-wrap: wrap; gap: 10px;
   justify-content: flex-start;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
+  align-content: flex-start;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.15) transparent;
   align-content: flex-start;
   padding: 4px;
   overflow-y: auto;
@@ -2112,7 +2269,8 @@ body.theme-95 .chat-empty-hint { color: #005511; }
   position: absolute;
   right: 0;
   bottom: 64px;
-  max-width: 280px;
+  min-width: 300px;
+  max-width: 360px;
   background: var(--surface);
   border: 1px solid rgba(255,215,0,.45);
   border-radius: 12px;

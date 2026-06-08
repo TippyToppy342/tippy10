@@ -11,6 +11,14 @@ const DIFFS = [
 
 let _soloCount = 1;
 let _soloDifficulties = ['sneaky']; // default difficulty per opponent (medium)
+let _soloSkipRule = 'next';         // 'next' | 'pick'
+
+window.setSoloSkipRule = function(rule) {
+  _soloSkipRule = rule;
+  document.querySelectorAll('#solo-setup .skip-rule-btn').forEach(b => {
+    b.classList.toggle('selected', b.dataset.rule === rule);
+  });
+};
 
 window.showSoloSetup = function() {
   document.getElementById('solo-setup').style.display = '';
@@ -84,9 +92,8 @@ window.startSoloGameFromForm = function() {
   }
   const icon = window.localStatePlayerIcon || null; // not always available; fall back below
   const cfg = _soloDifficulties.slice(0, _soloCount).map(key => ({ difficulty: key }));
-  // The icon picker stores on localState in game.js — read via window.getPlayerIconSelected if exposed
   const selectedIcon = document.querySelector('.icon-option.selected')?.dataset?.icon || '🦁';
-  window.startSoloGame(name, selectedIcon, cfg);
+  window.startSoloGame(name, selectedIcon, cfg, { skipRule: _soloSkipRule });
 };
 
 window.dismissSoloResume = function() {

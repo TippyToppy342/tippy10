@@ -51,11 +51,51 @@ function nextTurnIdx(currentIdx, order, skip = false) {
   return nextIdx;
 }
 
+// Advance from `fromIdx` to the next player whose turn it actually is, honouring
+// the per-player skipNext flag. Each flagged player has their flag cleared and
+// we keep advancing — supports both 'next' (immediate) and 'pick' (arbitrary)
+// skip rules uniformly.
+function advanceTurnPid(data, fromIdx) {
+  const order = data.playerOrder;
+  let idx = (fromIdx + 1) % order.length;
+  let safety = order.length + 2;
+  while (safety-- > 0) {
+    const pid = order[idx];
+    const p   = data.players[pid];
+    if (p && p.skipNext) {
+      p.skipNext = false;
+      idx = (idx + 1) % order.length;
+      continue;
+    }
+    return pid;
+  }
+  return order[idx];
+}
+
+// Pick the player who should receive the skip when a skip card is discarded.
+// Returns a Promise resolving to the chosen playerId.
+async function chooseSkipTarget(discarderId, data) {
+  const order = data.playerOrder;
+  const eligible = order.filter(pid => pid !== discarderId);
+  // If only one eligible player ('next' is unambiguous), or rule is 'next', skip them.
+  if (data.skipRule !== 'pick' || eligible.length <= 1) {
+    const idx = order.indexOf(discarderId);
+    return order[(idx + 1) % order.length];
+  }
+  // Show the modal and let the human pick.
+  if (typeof window.showSkipTargetModal === 'function') {
+    return await window.showSkipTargetModal(eligible, data.players);
+  }
+  // Fallback: default to next
+  const idx = order.indexOf(discarderId);
+  return order[(idx + 1) % order.length];
+}
+
 // ─────────────────────────────────────────────
 //  START GAME — called from the lobby Play-vs-Tippy form
 // ─────────────────────────────────────────────
 // aiConfig: [{ difficulty: 'sleepy'|'tippy'|'gameface' }, ...]
-window.startSoloGame = function(humanName, humanIcon, aiConfig) {
+window.startSoloGame = function(humanName, humanIcon, aiConfig, opts = {}) {
   const order = [];
   const players = {};
   const humanId = newPlayerId('p_h');
@@ -104,6 +144,7 @@ window.startSoloGame = function(humanName, humanIcon, aiConfig) {
     melds:       {},
     handNum:     1,
     theme:       window.getSettings?.()?.theme || 'standard',
+    skipRule:    (opts && opts.skipRule) === 'pick' ? 'pick' : 'next',
   };
 
   localState.isSolo     = true;
@@ -115,6 +156,8 @@ window.startSoloGame = function(humanName, humanIcon, aiConfig) {
   localState.hand       = [...players[humanId].hand];
   localState.selectedCards = [];
   localState.gameData   = gameData;
+  // Re-apply the user's persistent sort mode so the new deal is pre-sorted
+  if (typeof window.applySortMode === 'function') window.applySortMode();
 
   _soloChat = [];
   tippyNarrate(`🐾 Round 1 begins — good luck against ${aiConfig.length === 1 ? 'Tippy' : 'the pack'}!`);
@@ -270,8 +313,17 @@ export async function soloDiscard() {
 
   const order = data.playerOrder;
   const myIdx = order.indexOf(localState.playerId);
-  let skip = card.type === 'skip';
-  const skippedName = skip ? data.players[order[(myIdx + 1) % order.length]]?.name : null;
+  const skip  = card.type === 'skip';
+
+  // Choose skip target FIRST (might involve a modal) so the post-discard state
+  // is consistent before re-rendering.
+  let skippedPid = null;
+  if (skip) {
+    skippedPid = await chooseSkipTarget(localState.playerId, data);
+    if (skippedPid && data.players[skippedPid]) {
+      data.players[skippedPid].skipNext = true;
+    }
+  }
 
   const newHand = localState.hand.filter(c => c.id !== card.id);
   data.players[localState.playerId].hand = newHand;
@@ -281,7 +333,8 @@ export async function soloDiscard() {
   data.discardPile = [...(data.discardPile || []), card];
 
   if (skip) {
-    showTippyPopup(`${data.players[localState.playerId].name}: ⊘ Skip card! Cone of shame incoming!`, 'images/tippy/tippy-cone.jpeg');
+    const skippedName = data.players[skippedPid]?.name || 'Someone';
+    showTippyPopup(`⊘ ${data.players[localState.playerId].name} skipped ${skippedName}! Cone of shame!`, 'images/tippy/tippy-cone.jpeg');
     tippyNarrate(`⊘ ${data.players[localState.playerId].name} skipped ${skippedName}`);
   }
 
@@ -291,14 +344,14 @@ export async function soloDiscard() {
     return;
   }
 
-  data.currentTurn = order[nextTurnIdx(myIdx, order, skip)];
+  // Advance through the rotation, honouring any skipNext flags
+  data.currentTurn = advanceTurnPid(data, myIdx);
   data.turnPhase   = 'draw';
   renderBoard(data, localState);
   renderHand(localState);
   updateActionButtons();
   soloSave();
 
-  // If it's now an AI's turn, run AI turns until it's the human's again
   runAiTurnsUntilHuman();
 }
 
@@ -370,6 +423,7 @@ export async function soloStartNextRound() {
   for (const pid of order) {
     data.players[pid].hand = deck.slice(pos, pos + 10);
     data.players[pid].handCount = 10;
+    data.players[pid].skipNext = false; // clear any leftover skip flags
     pos += 10;
   }
   const drawPile  = deck.slice(pos);
@@ -387,6 +441,8 @@ export async function soloStartNextRound() {
   data.roundSummary = null;
   localState.hand = data.players[localState.playerId].hand;
   localState.selectedCards = [];
+  // Re-apply persistent sort mode for the new deal
+  if (typeof window.applySortMode === 'function') window.applySortMode();
 
   tippyNarrate(`🐾 Round ${newHandNum} begins!`);
   showScreen('game');
@@ -494,18 +550,39 @@ function makeAiSoloAdapter() {
       const order = data.playerOrder;
       const idx   = order.indexOf(aiId);
       const skip  = card.type === 'skip';
+
       if (skip) {
-        const skippedName = data.players[order[(idx + 1) % order.length]]?.name;
-        showTippyPopup(`${ai.name}: ⊘ Skip!`, 'images/tippy/tippy-cone.jpeg');
+        // Pick a skip target. With 'pick' rule the AI targets the biggest threat.
+        let skippedPid;
+        const eligible = order.filter(pid => pid !== aiId);
+        if (data.skipRule === 'pick' && eligible.length > 1) {
+          let bestThreat = -Infinity;
+          skippedPid = eligible[0];
+          for (const pid of eligible) {
+            const p = data.players[pid];
+            if (!p) continue;
+            let threat = (p.phase || 1) * 10;
+            if (p.phaseDone) threat += 25;
+            threat -= (p.handCount || 0);
+            if (threat > bestThreat) { bestThreat = threat; skippedPid = pid; }
+          }
+        } else {
+          skippedPid = order[(idx + 1) % order.length];
+        }
+        if (skippedPid && data.players[skippedPid]) {
+          data.players[skippedPid].skipNext = true;
+        }
+        const skippedName = data.players[skippedPid]?.name || 'Someone';
+        showTippyPopup(`⊘ ${ai.name} skipped ${skippedName}!`, 'images/tippy/tippy-cone.jpeg');
         tippyNarrate(`⊘ ${ai.name} skipped ${skippedName}`);
       }
+
       if (ai.hand.length === 0) {
-        // AI went out — round ends
         renderBoard(data, localState);
         handleSoloGoOut(aiId);
         return;
       }
-      data.currentTurn = order[nextTurnIdx(idx, order, skip)];
+      data.currentTurn = advanceTurnPid(data, idx);
       data.turnPhase   = 'draw';
       renderBoard(data, localState);
       if (data.currentTurn === localState.playerId) {

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Tippy 10</title>
 
   <!-- ── PWA: install + theming ── -->
@@ -213,6 +213,15 @@
         </div>
       </div>
       <div id="solo-difficulty-list" class="solo-difficulty-list"></div>
+
+      <div class="field-group" style="margin-top:8px">
+        <label>Skip Card Rule</label>
+        <div class="skip-rule-row">
+          <button type="button" class="skip-rule-btn selected" data-rule="next" onclick="setSoloSkipRule('next')">Always next player</button>
+          <button type="button" class="skip-rule-btn" data-rule="pick" onclick="setSoloSkipRule('pick')">Pick who to skip</button>
+        </div>
+      </div>
+
       <div class="btn-row">
         <button type="button" class="btn btn-join" onclick="hideSoloSetup()">Back</button>
         <button type="button" class="btn btn-create" onclick="startSoloGameFromForm()">Start 🐾</button>
@@ -262,6 +271,16 @@
     </div>
 
     <div id="player-list" class="player-list"></div>
+    <!-- Host-only skip-rule picker shown in the waiting room -->
+    <div id="waiting-skip-rule" class="waiting-skip-rule" style="display:none">
+      <div class="settings-section-label">Skip Card Rule</div>
+      <div class="skip-rule-row">
+        <button type="button" class="skip-rule-btn" data-rule="next" onclick="setHostSkipRule('next')">Always next player</button>
+        <button type="button" class="skip-rule-btn" data-rule="pick" onclick="setHostSkipRule('pick')">Pick who to skip</button>
+      </div>
+    </div>
+    <p id="waiting-skip-info" class="hint" style="display:none"></p>
+
     <button id="btn-start" class="btn btn-create" style="display:none" onclick="startGame()">Start Game 🐾</button>
     <p id="waiting-msg" class="hint"></p>
   </div>
@@ -282,6 +301,9 @@
 
   <!-- Scoreboard strip -->
   <div id="scoreboard-bar" class="scoreboard-bar"></div>
+
+  <!-- Turn rotation strip (auto-hidden for 1v1) -->
+  <div id="rotation-strip" class="rotation-strip" style="display:none"></div>
 
   <!-- Opponent panels -->
   <div id="opponents-area" class="opponents-area"></div>
@@ -369,6 +391,15 @@
   </div>
 </div>
 
+<!-- ══════════════════ SKIP TARGET MODAL ══════════════════ -->
+<div id="skip-target-modal" class="skip-target-modal">
+  <div class="skip-target-box">
+    <div class="skip-target-title">⊘ Who do you skip?</div>
+    <p class="skip-target-hint">Pick a player — they lose their next turn.</p>
+    <div id="skip-target-list" class="skip-target-list"></div>
+  </div>
+</div>
+
 <!-- ══════════════════ ROUND END ══════════════════ -->
 <div id="screen-round-end" class="screen">
   <div class="round-end-inner">
@@ -408,6 +439,7 @@
       <button type="button" onclick="chatPickerSelect('😂')" title="Laugh">😂</button>
       <button type="button" onclick="chatPickerSelect('🎉')" title="Party">🎉</button>
       <button type="button" onclick="chatPickerSelect('🦴')" title="Bone">🦴</button>
+      <button type="button" onclick="chatPickerSelect('🐔')" title="Chicken">🐔</button>
       <button type="button" onclick="chatPickerSelect('🔥')" title="Fire">🔥</button>
     </div>
 
