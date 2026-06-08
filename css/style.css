@@ -2355,16 +2355,27 @@ body.opt-noanimations .card.card-just-drawn { animation: none; box-shadow: none;
    on/off by the LAYOUT setting in the gear panel.
 ════════════════════════════════════════════════ */
 body.opt-mobile {
-  --card-w: 72px;
-  --card-h: 104px;
+  --card-w: 54px;
+  --card-h: 78px;
 }
-/* Compact + mobile — slightly smaller than mobile default but still touch-friendly.
-   Without this rule opt-mobile would override opt-compact and the "Compact Hand"
-   toggle would do nothing on phones. */
+/* iPad / tablet — mobile mode on, but more room — use bigger cards */
+@media (min-width: 601px) {
+  body.opt-mobile {
+    --card-w: 70px;
+    --card-h: 100px;
+  }
+}
+/* Compact + mobile — slightly smaller still, useful when the hand grows big. */
 body.opt-mobile.opt-compact {
-  --card-w: 60px;
-  --card-h: 88px;
+  --card-w: 46px;
+  --card-h: 66px;
 }
+/* Scale card text to match the smaller mobile card size */
+body.opt-mobile .card .center-num { font-size: 26px; }
+body.opt-mobile .card .corner     { font-size: 10px; }
+body.opt-mobile.opt-compact .card .center-num { font-size: 22px; }
+body.opt-mobile.opt-compact .card .corner     { font-size: 9px; }
+body.opt-mobile .wild-tippy-img   { width: 32px; height: 32px; }
 
 /* Top bar — slimmer, hide phase visual (already hidden under 640px),
    smaller turn indicator */
@@ -2409,11 +2420,21 @@ body.opt-mobile .player-area {
   border-top: 1px solid rgba(255,255,255,.06);
 }
 body.opt-mobile .player-info-bar { font-size: 13px; gap: 8px; }
+/* Mobile hand — wrap into rows so all 10-11 cards are visible at once
+   without horizontal scrolling. On tablets there's room for a single row;
+   on phones it naturally breaks into 2 rows. */
 body.opt-mobile .hand-zone {
-  gap: 6px;
-  padding-bottom: 6px;
-  min-height: calc(var(--card-h) + 14px);
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 4px 2px 6px;
+  overflow-x: visible;
+  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  min-height: calc(var(--card-h) + 14px);
+  /* Cap at ~2 rows so the action bar stays on screen */
+  max-height: calc(var(--card-h) * 2 + 18px);
 }
 
 /* Action bar — bigger touch targets ≥44px tall */
