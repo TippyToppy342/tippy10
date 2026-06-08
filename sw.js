@@ -1,15 +1,16 @@
 // ═══════════════════════════════════════════
-//  sw.js — Minimal service worker for PWA installability
+//  sw.js — Service worker for PWA installability
 // ═══════════════════════════════════════════
-// Android Chrome only offers the "Install app" prompt when a service worker is
-// registered AND has at least one fetch handler. This worker doesn't do offline
-// caching (Firebase Realtime DB needs the network anyway), but its existence
-// makes the site installable. iOS Safari ignores service workers for PWA install,
-// but reads the manifest + apple-touch-icon meta tags — handled separately.
+// Android Chrome needs the fetch handler to actively call event.respondWith()
+// (not just exist as an empty no-op) before it'll consider the site installable.
+// This SW does a transparent network passthrough — no offline caching, just
+// satisfies the install criteria.
+
+const SW_VERSION = 'tippy10-v2';
 
 self.addEventListener('install', (event) => {
-  // Activate immediately on first install
-  self.skipWaiting();
+  // Activate immediately on first install so old versions don't linger
+  event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener('activate', (event) => {
@@ -17,8 +18,13 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
-// A fetch handler is required for Chrome to recognise the SW as installable,
-// but we just pass through — no caching.
+// Active fetch handler — calls respondWith for every request, just passing
+// through to the network. This is what Chrome's installability check looks for.
 self.addEventListener('fetch', (event) => {
-  // network-only; the browser handles everything as normal
+  event.respondWith(
+    fetch(event.request).catch(() => {
+      // Network failure — return a minimal response so the SW doesn't crash
+      return new Response('', { status: 408, statusText: 'Network error' });
+    })
+  );
 });
