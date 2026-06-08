@@ -526,7 +526,9 @@ body.theme-95 .rot-arrow { color: #003311; }
 .table-area {
   flex: 1; width: 100%;
   display: flex; flex-direction: row;
-  align-items: flex-start;
+  /* Stretch so the meld-area fills the full available height — required
+     for its overflow-y:auto to actually scroll when many melds wrap. */
+  align-items: stretch;
   gap: 10px; overflow: hidden; padding: 8px;
   min-height: 0;
 }
@@ -2408,7 +2410,18 @@ body.opt-mobile .opp-phase-visual { display: none; } /* save vertical space */
 /* Center table — tighter spacing */
 body.opt-mobile .table-area { padding: 6px 8px; gap: 8px; }
 body.opt-mobile .pile-zone { gap: 8px; }
-body.opt-mobile .meld-area { gap: 6px; padding: 6px; }
+body.opt-mobile .meld-area {
+  gap: 6px;
+  padding: 6px;
+  /* Make sure the meld area can scroll independently on mobile when many
+     phases are laid down. The base styles already set overflow-y: auto +
+     min-height: 0, but we re-assert here so it's explicit and the height: 100%
+     guarantees the scroll container has a bounded height to scroll within. */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
+  height: 100%;
+}
 
 /* Player area / hand — comfortable taps */
 body.opt-mobile .player-area {
