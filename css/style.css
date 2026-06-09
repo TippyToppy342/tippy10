@@ -2475,17 +2475,23 @@ body.opt-mobile .player-info-bar { font-size: 13px; gap: 8px; }
    without horizontal scrolling. On tablets there's room for a single row;
    on phones it naturally breaks into 2 rows. */
 body.opt-mobile .hand-zone {
+  display: flex !important;        /* defensive — never accidentally hidden */
   flex-wrap: wrap;
   justify-content: center;
   align-items: flex-start;
   gap: 5px;
   padding: 4px 2px 6px;
   overflow-x: visible;
-  overflow-y: auto;
+  overflow-y: visible;              /* let the hand naturally grow; player-area scrolls if needed */
   -webkit-overflow-scrolling: touch;
   min-height: calc(var(--card-h) + 14px);
-  /* Cap at ~2 rows so the action bar stays on screen */
-  max-height: calc(var(--card-h) * 2 + 18px);
+  max-height: none;                 /* remove rigid cap — was causing iOS to clip + hide on re-render */
+}
+/* Let the player-area itself handle overflow if the hand grows beyond expected */
+body.opt-mobile .player-area {
+  max-height: 55vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Action bar — bigger touch targets ≥44px tall */

@@ -493,6 +493,19 @@ function updateSortButtons(sortMode) {
 // ── My Hand ──
 export function renderHand(localState) {
   const zone = document.getElementById('my-hand');
+  if (!zone) return;
+
+  // Safety net — if our local hand is empty but the game data still has cards
+  // for this player, restore from the game data. Prevents stale-state bugs where
+  // a sort or other action accidentally wipes localState.hand on certain iOS layouts.
+  if ((!localState.hand || localState.hand.length === 0) && localState.gameData) {
+    const myData = localState.gameData.players?.[localState.playerId];
+    const recoverable = myData?.hand;
+    if (Array.isArray(recoverable) && recoverable.length > 0) {
+      localState.hand = recoverable.slice();
+    }
+  }
+
   zone.innerHTML = '';
 
   // Keep sort buttons in sync with current mode
@@ -501,7 +514,7 @@ export function renderHand(localState) {
   const isMyTurn    = data?.currentTurn === localState.playerId;
   const isPlayPhase = data?.turnPhase === 'play';
 
-  localState.hand.forEach((card) => {
+  (localState.hand || []).forEach((card) => {
     const isSelected = localState.selectedCards.includes(card.id);
     const cEl = renderCard(card, {
       onClick: (c, el) => {
