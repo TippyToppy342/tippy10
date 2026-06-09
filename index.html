@@ -19,7 +19,7 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;600;700;800&family=VT323&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/style.css?v=20251221" />
 </head>
 <body>
 
@@ -461,15 +461,15 @@
   <div id="chat-toast" class="chat-toast" onclick="toggleChat()" role="alert" aria-live="polite"></div>
 </div>
 
-<!-- Scripts -->
-<script type="module" src="js/firebase-config.js"></script>
-<script type="module" src="js/cards.js"></script>
-<script type="module" src="js/game.js"></script>
-<script type="module" src="js/ui.js"></script>
-<script type="module" src="js/ai.js"></script>
-<script type="module" src="js/solo.js"></script>
-<script src="js/settings.js"></script>
-<script src="js/solo-lobby.js"></script>
+<!-- Scripts — version query forces cache invalidation when bumped -->
+<script type="module" src="js/firebase-config.js?v=20251221"></script>
+<script type="module" src="js/cards.js?v=20251221"></script>
+<script type="module" src="js/game.js?v=20251221"></script>
+<script type="module" src="js/ui.js?v=20251221"></script>
+<script type="module" src="js/ai.js?v=20251221"></script>
+<script type="module" src="js/solo.js?v=20251221"></script>
+<script src="js/settings.js?v=20251221"></script>
+<script src="js/solo-lobby.js?v=20251221"></script>
 
 <!-- Register the service worker so Chrome on Android offers the "Install app" prompt.
      Silently no-ops on browsers that don't support service workers. -->

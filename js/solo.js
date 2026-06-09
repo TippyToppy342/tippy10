@@ -181,6 +181,11 @@ export async function soloDraw(source) {
   const drawn = drawFromPile(data, source);
   if (!drawn) return;
 
+  // Track pickups from the discard pile so the AI can infer what we're after
+  if (source === 'discard') {
+    data.players[localState.playerId].lastDrawFromDiscard = drawn;
+  }
+
   data.players[localState.playerId].hand.push(drawn);
   localState.hand = data.players[localState.playerId].hand;
   data.players[localState.playerId].handCount = localState.hand.length;
@@ -505,6 +510,9 @@ function makeAiSoloAdapter() {
       const data = localState.gameData;
       const drawn = drawFromPile(data, source);
       if (!drawn) return null;
+      // Track which card the AI picked up from the discard so the opponent's AI
+      // can read that signal back (currently human is the only opponent in solo).
+      if (source === 'discard') ai.lastDrawFromDiscard = drawn;
       ai.hand.push(drawn);
       ai.handCount = ai.hand.length;
       data.turnPhase = 'play';

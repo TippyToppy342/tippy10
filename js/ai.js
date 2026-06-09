@@ -313,7 +313,7 @@ function chooseDiscard(ai, soloState, difficulty) {
     if (skipInHand && nextPlayerIsThreat(ai, soloState, difficulty)) return skipInHand;
 
     const candidates = nonWildNonSkip.length ? nonWildNonSkip : nonWild;
-    const opUsefulWeight = difficulty === 'hungry' ? 1.2 : 0.6;
+    const opUsefulWeight = difficulty === 'hungry' ? 2.0 : 0.6;
     const baseScore = ai.phaseDone ? 0 : phaseProgressScore(ai.hand, ai.phase);
     let best = candidates[0];
     let bestRank = -Infinity;
@@ -384,21 +384,41 @@ function opponentUsefulness(card, ai, soloState) {
   let score = 0;
   for (const part of phaseObj.parts) {
     if (part.type === 'set') {
-      // Any number card could form a set — moderate value
       score += 30;
     } else if (part.type === 'run') {
-      // Middle numbers (3-10) participate in many possible runs of length ≥4
       if (card.number >= 3 && card.number <= 10) score += 60;
-      else score += 20; // edges (1-2, 11-12) less versatile
+      else score += 20;
     } else if (part.type === 'color') {
-      // Color phase wants any card of any color
       score += 50;
     }
   }
 
-  // If next player has already laid down, ANY card that matches their meld is gold
+  // TARGETED meld-hit penalty — instead of a flat +40 for "laid down", check if
+  // THIS card can actually hit one of their melds. Way more accurate.
   if (nextP.phaseDone) {
-    score += 40; // they can hit melds with almost anything
+    const meldsOfNext = soloState.melds?.[nextPid] || [];
+    let canHitTheirMeld = false;
+    for (const g of meldsOfNext) {
+      if (canHit(card, g.cards || [], { type: g.partType })) {
+        canHitTheirMeld = true;
+        break;
+      }
+    }
+    if (canHitTheirMeld) score += 150;  // very bad: directly extends their meld
+  }
+
+  // PICKUP MEMORY — if they recently picked this card up from the discard pile,
+  // they want cards related to it. Penalise discarding anything that completes
+  // a set, run, or color around what they grabbed.
+  const lastPickup = nextP.lastDrawFromDiscard;
+  if (lastPickup && lastPickup.type === 'number') {
+    if (card.type === 'number') {
+      if (card.number === lastPickup.number) score += 80;             // same number → set ammo
+      if (card.color  === lastPickup.color)  score += 40;             // same color → color phase ammo
+      const numGap = Math.abs(card.number - lastPickup.number);
+      if (numGap === 1) score += 70;                                   // adjacent → run ammo
+      else if (numGap === 2) score += 40;                              // near → run ammo with a wild
+    }
   }
 
   return score;
