@@ -461,15 +461,21 @@
   <div id="chat-toast" class="chat-toast" onclick="toggleChat()" role="alert" aria-live="polite"></div>
 </div>
 
-<!-- Scripts — version query forces cache invalidation when bumped -->
-<script type="module" src="js/firebase-config.js?v=20251223"></script>
-<script type="module" src="js/cards.js?v=20251223"></script>
-<script type="module" src="js/game.js?v=20251223"></script>
-<script type="module" src="js/ui.js?v=20251223"></script>
-<script type="module" src="js/ai.js?v=20251223"></script>
-<script type="module" src="js/solo.js?v=20251223"></script>
-<script src="js/settings.js?v=20251223"></script>
-<script src="js/solo-lobby.js?v=20251223"></script>
+<!-- Scripts — NO query strings on module sources. ES modules import each
+     other via relative paths (e.g. `import './game.js'`), which would NOT
+     carry the query string. With a ?v= on the script tag, the browser
+     would load TWO copies of every module (one for the script tag URL, one
+     for the import URL), each with its own state — silently breaking the
+     entire app. Use a hard refresh (Cmd+Shift+R) when JS changes need to
+     re-deploy. -->
+<script type="module" src="js/firebase-config.js"></script>
+<script type="module" src="js/cards.js"></script>
+<script type="module" src="js/game.js"></script>
+<script type="module" src="js/ui.js"></script>
+<script type="module" src="js/ai.js"></script>
+<script type="module" src="js/solo.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/solo-lobby.js"></script>
 
 <!-- Register the service worker so Chrome on Android offers the "Install app" prompt.
      Silently no-ops on browsers that don't support service workers. -->
