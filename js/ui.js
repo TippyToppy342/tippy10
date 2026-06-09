@@ -97,17 +97,58 @@ function updateGallery() {
 
 // ── Tippy popup (shown to all players via Firebase broadcast) ──
 let _popupTimer = null;
+let _popupDismissalInit = false;
+
+function _dismissTippyPopup() {
+  const popup = document.getElementById('tippy-popup');
+  if (popup) popup.classList.remove('show');
+  if (_popupTimer) { clearTimeout(_popupTimer); _popupTimer = null; }
+}
+
+// Wire up tap-to-dismiss (any device) and swipe-to-dismiss (touch only).
+// Idempotent — only installs listeners once.
+function _initPopupDismissal() {
+  if (_popupDismissalInit) return;
+  const popup = document.getElementById('tippy-popup');
+  if (!popup) return;
+  _popupDismissalInit = true;
+
+  // Click / tap anywhere on the popup to dismiss
+  popup.addEventListener('click', _dismissTippyPopup);
+
+  // Swipe in any direction (>30px) to dismiss on touch devices
+  let startX = 0, startY = 0, startT = 0;
+  popup.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    startT = Date.now();
+  }, { passive: true });
+  popup.addEventListener('touchend', (e) => {
+    if (!e.changedTouches.length) return;
+    const dx = e.changedTouches[0].clientX - startX;
+    const dy = e.changedTouches[0].clientY - startY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const dt = Date.now() - startT;
+    // Swipe = >30px movement, OR quick flick (>20px in <300ms)
+    if (dist > 30 || (dist > 20 && dt < 300)) {
+      _dismissTippyPopup();
+    }
+  }, { passive: true });
+}
 
 export function showTippyPopup(text, img) {
   const popup = document.getElementById('tippy-popup');
   const imgEl = document.getElementById('tippy-popup-img');
   const txt   = document.getElementById('tippy-popup-text');
   if (!popup) return;
+  _initPopupDismissal();
   imgEl.src = img || 'images/tippy/tippy-happy.jpeg';
   txt.textContent = text || '🐾 Woof!';
   popup.classList.add('show');
   if (_popupTimer) clearTimeout(_popupTimer);
-  _popupTimer = setTimeout(() => popup.classList.remove('show'), 3500);
+  // 2.5s feels snappy — long enough to read, short enough not to block content
+  _popupTimer = setTimeout(_dismissTippyPopup, 2500);
 }
 
 // ── Round-end scoring screen ──

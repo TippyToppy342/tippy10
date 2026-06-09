@@ -1103,10 +1103,16 @@ body.theme-95 .btn-sm.sort-active {
   z-index: 200;
   transition: bottom .45s cubic-bezier(.34,1.56,.64,1);
   pointer-events: none;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
   display: flex;
   flex-direction: column;
 }
-.tippy-popup.show { bottom: 90px; }
+.tippy-popup.show {
+  bottom: 90px;
+  pointer-events: auto; /* enabled when visible so tap/swipe dismissal works */
+}
 .tippy-popup img {
   width: 100%; height: 210px;
   object-fit: cover; object-position: center top;
@@ -1874,6 +1880,13 @@ body.theme-95 .wild-tippy-img {
 /* On the game screen the chat trigger lives inside the action-bar,
    so the floating bubble is redundant and would obscure the hand. */
 #screen-game.active ~ #chat-root .chat-fab { display: none; }
+
+/* Solo mode: no other humans to talk to, so hide chat entirely.
+   Tippy popups for events (laydown, skip, go-out) still fire as visuals. */
+body.is-solo #chat-root,
+body.is-solo .chat-inline-btn {
+  display: none !important;
+}
 /* The inline button only makes sense on the game screen; hide it elsewhere
    so the floating FAB is the only trigger in the waiting / round-end / end screens. */
 .chat-inline-btn { display: none; }

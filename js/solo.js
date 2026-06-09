@@ -160,11 +160,12 @@ window.startSoloGame = function(humanName, humanIcon, aiConfig, opts = {}) {
   if (typeof window.applySortMode === 'function') window.applySortMode();
 
   _soloChat = [];
-  tippyNarrate(`🐾 Round 1 begins — good luck against ${aiConfig.length === 1 ? 'Tippy' : 'the pack'}!`);
+  // Solo mode hides chat — there's nobody else to talk to. Tippy popups still
+  // fire for events. Toggling this body class drives CSS visibility.
+  document.body.classList.add('is-solo');
 
   showScreen('game');
   renderBoard(gameData, localState);
-  if (typeof window.soloShowChatWidget === 'function') window.soloShowChatWidget();
   soloSave();
 };
 
@@ -674,7 +675,7 @@ window.resumeSoloGame = function() {
       showScreen('game');
       renderBoard(saved.gameData, localState);
     }
-    if (typeof window.soloShowChatWidget === 'function') window.soloShowChatWidget();
+    document.body.classList.add('is-solo'); // hides chat (see solo CSS)
     if (status === 'playing' && saved.gameData.currentTurn !== saved.playerId) {
       runAiTurnsUntilHuman();
     }
@@ -689,7 +690,7 @@ window.endSoloGame = function() {
   localState.selectedCards = [];
   _soloChat = [];
   soloClearSave();
-  if (typeof window.soloHideChatWidget === 'function') window.soloHideChatWidget();
+  document.body.classList.remove('is-solo');
   showScreen('lobby');
 };
 
