@@ -2409,7 +2409,32 @@ body.opt-mobile .opp-phase-visual { display: none; } /* save vertical space */
 
 /* Center table — tighter spacing */
 body.opt-mobile .table-area { padding: 6px 8px; gap: 8px; }
-body.opt-mobile .pile-zone { gap: 8px; }
+/* Tighter pile zone on mobile — smaller gap, narrower padding, so both
+   draw and discard piles fit inside table-area without being cut off. */
+/* Gap is 24px so the absolutely-positioned "Draw"/"Discard" pile labels
+   (bottom: -18px each) have clearance without overlapping the next pile. */
+body.opt-mobile .pile-zone { gap: 24px; padding: 4px 2px 22px; }
+/* Pile back is hard-coded to 76×108 globally — scale down on phones so it's
+   proportional to the smaller hand cards (54×78) and both piles fit on screen. */
+body.opt-mobile #draw-pile .pile-back {
+  width: 60px;
+  height: 86px;
+}
+body.opt-mobile #discard-pile {
+  --card-w: 60px;
+  --card-h: 86px;
+}
+body.opt-mobile #discard-pile .discard-top-card {
+  min-width: 60px;
+  min-height: 86px;
+}
+/* On wider tablets in mobile mode, keep the piles closer to default size */
+@media (min-width: 601px) {
+  body.opt-mobile #draw-pile .pile-back { width: 76px; height: 108px; }
+  body.opt-mobile #discard-pile { --card-w: 76px; --card-h: 108px; }
+  body.opt-mobile #discard-pile .discard-top-card { min-width: 76px; min-height: 108px; }
+  body.opt-mobile .pile-zone { gap: 24px; }
+}
 body.opt-mobile .meld-area {
   gap: 6px;
   padding: 6px;
