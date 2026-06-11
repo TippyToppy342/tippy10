@@ -299,11 +299,8 @@
     </div>
   </div>
 
-  <!-- Scoreboard strip -->
-  <div id="scoreboard-bar" class="scoreboard-bar"></div>
-
-  <!-- Turn rotation strip (auto-hidden for 1v1) -->
-  <div id="rotation-strip" class="rotation-strip" style="display:none"></div>
+  <!-- Turn bar — avatars in turn order (gold ring = current, tag = next) -->
+  <div id="turn-bar" class="turn-bar"></div>
 
   <!-- Opponent panels -->
   <div id="opponents-area" class="opponents-area"></div>
@@ -338,10 +335,9 @@
       <div class="sort-group">
         <button id="btn-sort-number" class="btn btn-sm" onclick="sortHandByNumber()" title="Sort by number">🔢</button>
         <button id="btn-sort-color"  class="btn btn-sm" onclick="sortHandByColor()"  title="Sort by color">🎨</button>
-        <button id="btn-sort-wilds"  class="btn btn-sm" onclick="sortHandWildsFirst()" title="Wilds first">★</button>
       </div>
       <span class="drag-hint">drag to reorder</span>
-      <button class="btn btn-sm btn-lay"     id="btn-lay"     onclick="layDownPhase()"    disabled>Lay Down Phase</button>
+      <button class="btn btn-sm btn-lay"     id="btn-lay"     onclick="layDownPhase()"    disabled>Lay Down<span class="lay-word"> Phase</span></button>
       <button class="btn btn-sm btn-discard" id="btn-discard" onclick="discardSelected()" disabled>Discard</button>
       <button class="btn btn-sm chat-inline-btn" id="chat-inline-btn" type="button" onclick="toggleChat()" title="Open chat">
         💬<span class="chat-unread-badge inline-badge" style="display:none">0</span>

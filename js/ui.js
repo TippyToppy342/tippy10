@@ -46,6 +46,26 @@ const GALLERY = [
   { src: 'images/tippy/tippy-peeking.jpeg',    caption: 'Tippy peeking to see if it\'s your turn yet 🚗' },
   { src: 'images/tippy/tippy-sleep.jpeg',      caption: 'Tippy will nap while you take forever 😴' },
   { src: 'images/tippy/tippy-cone.jpeg',       caption: 'Last place gets the cone of shame 🏆😂' },
+  { src: 'images/tippy2/tippy2-staredown.jpeg', caption: 'The pre-game staredown 👀' },
+  { src: 'images/tippy2/tippy2-daisy.jpeg',     caption: 'Tippy in his flower era 🌼' },
+  { src: 'images/tippy2/tippy2-zoomies.jpeg',   caption: 'Zoomies activated — game on! 💨' },
+  { src: 'images/tippy2/tippy2-pumpkin.jpeg',   caption: 'Tippy the pug-o-lantern 🎃' },
+  { src: 'images/tippy2/tippy2-lifejacket.jpeg',caption: 'Captain Tippy reporting for duty ⛵' },
+  { src: 'images/tippy2/tippy2-sweaters.jpeg',  caption: 'The official Tippy fan club 🧶' },
+  { src: 'images/tippy2/tippy2-brewery.jpeg',   caption: 'Tippy out with the crew 🍻' },
+  { src: 'images/tippy2/tippy2-cot.jpeg',       caption: 'Tippy surveys his kingdom 👑' },
+  { src: 'images/tippy2/tippy2-selfie.jpeg',    caption: 'Tippy photobombing the selfie 🤳' },
+  { src: 'images/tippy2/tippy2-squish.jpeg',    caption: 'Tippy unimpressed with your shuffle 😒' },
+  { src: 'images/tippy2/tippy2-slipper.jpeg',   caption: 'Tippy found contraband 🥾' },
+  { src: 'images/tippy2/tippy2-donutbed.jpeg',  caption: 'Tippy flopped mid-strategy session 🫠' },
+  { src: 'images/tippy2/tippy2-sunspot.jpeg',   caption: 'Tippy recharging in the sun ☀️' },
+  { src: 'images/tippy2/tippy2-parkpets.jpeg',  caption: 'Tippy collecting park pets 🌳' },
+  { src: 'images/tippy2/tippy2-blanketnap.jpeg',caption: 'Tippy tucked in for the night 🛌' },
+  { src: 'images/tippy2/tippy2-smoosh.jpeg',    caption: 'Maximum smoosh achieved 😴' },
+  { src: 'images/tippy2/tippy2-bigbed.jpeg',    caption: 'One pug, one entire bed 🛏️' },
+  { src: 'images/tippy2/tippy2-naptime.jpeg',   caption: 'Naps between rounds are mandatory 💤' },
+  { src: 'images/tippy2/tippy2-polaroid.jpeg',  caption: 'Vintage Tippy, certified classic 📸' },
+  { src: 'images/tippy2/tippy2-carrier.jpeg',   caption: 'Tippy travels for game night ✈️' },
 ];
 let _galleryIdx = 0;
 let _galleryTimer = null;
@@ -314,11 +334,8 @@ export function renderBoard(data, localState) {
     ind.classList.remove('my-turn');
   }
 
-  // Scoreboard strip
-  renderScoreboard(data, myId);
-
-  // Rotation order
-  renderRotationStrip(data, myId);
+  // Turn bar (avatars in turn order + scores)
+  renderTurnBar(data, myId);
 
   // Opponents
   renderOpponents(data, myId);
@@ -338,61 +355,34 @@ export function renderBoard(data, localState) {
   updateActionButtons();
 }
 
-// ── Turn rotation strip — shows playerOrder, highlights whose turn it is ──
-function renderRotationStrip(data, myId) {
-  const el = document.getElementById('rotation-strip');
-  if (!el) return;
+// ── Turn bar — avatar rings in turn order; pulsing gold ring = current
+//    turn, dashed ring + tag = up next. Details live in the opponent
+//    panels — this strip is pure turn order. Hidden for 1v1. ──
+function renderTurnBar(data, myId) {
+  const bar = document.getElementById('turn-bar');
+  if (!bar) return;
   const order = firebaseToArray(data.playerOrder || []);
-  // Auto-hide for 1v1 — rotation is trivially obvious
-  if (order.length <= 2) { el.style.display = 'none'; return; }
-
-  el.style.display = '';
-  const parts = [];
-  order.forEach((pid, i) => {
+  // 1v1 — turn order is obvious from the top banner
+  if (order.length <= 2) { bar.innerHTML = ''; return; }
+  const curIdx  = Math.max(0, order.indexOf(data.currentTurn));
+  const nextPid = order[(curIdx + 1) % order.length];
+  bar.innerHTML = order.map(pid => {
     const p = data.players[pid];
-    if (!p) return;
-    const isMe   = pid === myId;
-    const active = pid === data.currentTurn;
-    const label  = isMe ? 'You' : (p.name || 'Player');
-    parts.push(
-      `<span class="rot-player${active ? ' active' : ''}" title="${label}">${p.icon || '🎮'} ${escapeHtml(label)}</span>`
-    );
-    if (i < order.length - 1) parts.push('<span class="rot-arrow">▶</span>');
-  });
-  // Wrap around indicator (back to first)
-  parts.push('<span class="rot-arrow">↻</span>');
-  el.innerHTML = parts.join('');
+    if (!p) return '';
+    const isMe     = pid === myId;
+    const isActive = pid === data.currentTurn;
+    const isNext   = pid === nextPid && !isActive;
+    const name     = isMe ? 'You' : escapeHtml(p.name || 'Player');
+    return `<div class="tb-player${isActive ? ' tb-active' : ''}${isNext ? ' tb-next' : ''}${isMe ? ' tb-me' : ''}" title="${name}">
+      <div class="tb-avatar">${p.icon || '🎮'}${isNext ? '<span class="tb-next-tag">next</span>' : ''}</div>
+    </div>`;
+  }).join('');
 }
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   }[c]));
-}
-
-// ── Scoreboard strip ──
-function renderScoreboard(data, myId) {
-  const bar = document.getElementById('scoreboard-bar');
-  if (!bar) return;
-  const order  = firebaseToArray(data.playerOrder || []);
-  // Sort by phase desc, then score asc (leader first)
-  const sorted = [...order].sort((a, b) => {
-    const pa = data.players[a], pb = data.players[b];
-    const phA = pa?.phase || 1, phB = pb?.phase || 1;
-    if (phB !== phA) return phB - phA;
-    return (pa?.score || 0) - (pb?.score || 0);
-  });
-  bar.innerHTML = sorted.map((pid, rank) => {
-    const p     = data.players[pid];
-    if (!p) return '';
-    const phase = Math.min(p.phase || 1, 10);
-    const isMe  = pid === myId;
-    return `<span class="sb-chip${isMe ? ' sb-me' : ''}${rank === 0 ? ' sb-lead' : ''}">
-      ${p.icon || '🎮'} ${p.name}
-      <span class="sb-phase">P${phase}</span>
-      <span class="sb-score">${p.score || 0}pt</span>
-    </span>`;
-  }).join('');
 }
 
 // ── Opponents ──
@@ -483,7 +473,7 @@ let _dragSrcId = null;
 
 // ── Highlight whichever sort button is active ──
 function updateSortButtons(sortMode) {
-  const map = { number: 'btn-sort-number', color: 'btn-sort-color', wilds: 'btn-sort-wilds' };
+  const map = { number: 'btn-sort-number', color: 'btn-sort-color' };
   for (const [mode, id] of Object.entries(map)) {
     const btn = document.getElementById(id);
     if (btn) btn.classList.toggle('sort-active', sortMode === mode);

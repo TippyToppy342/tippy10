@@ -37,18 +37,30 @@ const PHASE_DOWN_MOMENTS = [
   { img: 'images/tippy/tippy-pinkblanket.jpeg', text: '🩷 Tippy peeks and approves!' },
   { img: 'images/tippy/tippy-closeup.jpeg',     text: '👁️ Tippy is WATCHING. Nice move.' },
   { img: 'images/tippy/tippy-sidewalk.jpeg',    text: '🚶 Tippy nods. Very respectable.' },
+  { img: 'images/tippy2/tippy2-daisy.jpeg',     text: '🌼 Beautiful! Tippy awards you a flower crown!' },
+  { img: 'images/tippy2/tippy2-zoomies.jpeg',   text: '💨 Phase down! Tippy got the zoomies!' },
+  { img: 'images/tippy2/tippy2-pumpkin.jpeg',   text: '🎃 Tippy popped out to congratulate you!' },
+  { img: 'images/tippy2/tippy2-lifejacket.jpeg',text: '⛵ Captain Tippy says: smooth sailing!' },
+  { img: 'images/tippy2/tippy2-cot.jpeg',       text: '👑 Tippy approves from his throne!' },
+  { img: 'images/tippy2/tippy2-staredown.jpeg', text: '👀 Tippy saw that coming all along.' },
 ];
 const SKIP_MOMENTS = [
   { img: 'images/tippy/tippy-cone.jpeg',   text: '⊘ Skip card! Cone of shame incoming!' },
   { img: 'images/tippy/tippy-cone.jpeg',   text: '🏆 Someone got SKIPPED! Ha!' },
   { img: 'images/tippy/tippy-yawn.jpeg',   text: '🥱 Skip! Tippy doesn\'t feel bad for you.' },
   { img: 'images/tippy/tippy-sideeye.jpeg',text: '😑 Skip. Tippy gives maximum side-eye.' },
+  { img: 'images/tippy2/tippy2-squish.jpeg',   text: '😒 Skipped. Tippy is unimpressed with your luck.' },
+  { img: 'images/tippy2/tippy2-smoosh.jpeg',   text: '😴 Skipped? Tippy can\'t even watch.' },
+  { img: 'images/tippy2/tippy2-carrier.jpeg',  text: '🧳 Skipped! Pack it up, pal.' },
 ];
 const GOOUT_MOMENTS = [
   { img: 'images/tippy/tippy-happy.jpeg',  text: '🏆 went out! Tippy celebrates!' },
   { img: 'images/tippy/tippy-park.jpeg',   text: '🌿 went out! Tippy is impressed!' },
   { img: 'images/tippy/tippy-carseat.jpeg',text: '🚗 went out! Tippy is doing victory laps!' },
   { img: 'images/tippy/tippy-lick.jpeg',   text: '👅 went out! Even Tippy is jealous.' },
+  { img: 'images/tippy2/tippy2-zoomies.jpeg', text: '💨 went out! Victory zoomies!' },
+  { img: 'images/tippy2/tippy2-sweaters.jpeg',text: '🧶 went out! The fan club goes wild!' },
+  { img: 'images/tippy2/tippy2-brewery.jpeg', text: '🍻 went out! Drinks are on Tippy!' },
 ];
 let _phaseMomentIdx = 0, _skipMomentIdx = 0, _goOutMomentIdx = 0;
 function nextPhaseMoment()  { return PHASE_DOWN_MOMENTS[_phaseMomentIdx++  % PHASE_DOWN_MOMENTS.length]; }
@@ -987,20 +999,10 @@ function _execSortByColor() {
     return a.number - b.number;
   });
 }
-function _execSortWildsFirst() {
-  const typeOrder = { wild: 0, number: 1, skip: 2 };
-  localState.hand.sort((a, b) => {
-    const ta = typeOrder[a.type] ?? 3, tb = typeOrder[b.type] ?? 3;
-    if (ta !== tb) return ta - tb;
-    return a.number - b.number;
-  });
-}
-
 /** Re-apply the active sort mode — called after drawing a card */
 export function applySortMode() {
   if (localState.sortMode === 'number') _execSortByNumber();
   else if (localState.sortMode === 'color')  _execSortByColor();
-  else if (localState.sortMode === 'wilds')  _execSortWildsFirst();
 }
 
 // Public sort buttons — toggle mode on/off, then re-sort and re-render
@@ -1011,11 +1013,6 @@ window.sortHandByNumber = function() {
 };
 window.sortHandByColor = function() {
   localState.sortMode = localState.sortMode === 'color' ? null : 'color';
-  applySortMode();
-  renderHand(localState);
-};
-window.sortHandWildsFirst = function() {
-  localState.sortMode = localState.sortMode === 'wilds' ? null : 'wilds';
   applySortMode();
   renderHand(localState);
 };

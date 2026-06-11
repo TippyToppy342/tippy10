@@ -456,50 +456,66 @@ body.theme-95 .skip-target-option .skip-target-info { color: #009922; }
   scrollbar-width: none;
 }
 
-/* ── Turn rotation strip — shows playerOrder + highlights whose turn it is ── */
-.rotation-strip {
+/* ── Turn bar — avatars in turn order; pulsing gold ring marks the
+   current player, dashed ring + tag marks who's next ── */
+.turn-bar {
   width: 100%;
-  padding: 4px 12px;
+  padding: 6px 10px 8px;
   display: flex; flex-wrap: nowrap;
-  align-items: center; justify-content: center;
-  gap: 6px;
+  align-items: flex-start; justify-content: center;
+  gap: 16px;
   flex-shrink: 0;
-  background: rgba(0,0,0,.15);
-  border-bottom: 1px solid rgba(255,255,255,.04);
+  background: rgba(0,0,0,.25);
+  border-bottom: 1px solid rgba(255,255,255,.05);
   overflow-x: auto;
   scrollbar-width: none;
-  font-size: 11px; font-weight: 700;
 }
-.rotation-strip::-webkit-scrollbar { display: none; }
-.rot-player {
-  display: inline-flex; align-items: center;
-  padding: 2px 8px;
-  border-radius: 999px;
-  color: #8899aa;
-  background: transparent;
-  border: 1px solid transparent;
-  white-space: nowrap;
-  transition: background .2s, color .2s, border-color .2s;
+.turn-bar:empty { display: none; }
+.turn-bar::-webkit-scrollbar { display: none; }
+.tb-player {
+  display: flex; flex-direction: column; align-items: center;
+  flex-shrink: 0;
+  opacity: .55;
+  transition: opacity .25s;
 }
-.rot-player.active {
-  background: rgba(255,215,0,.18);
-  color: var(--gold);
-  border-color: rgba(255,215,0,.45);
+.tb-player.tb-active { opacity: 1; }
+.tb-player.tb-next   { opacity: .85; }
+.tb-avatar {
+  position: relative;
+  width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(255,255,255,.06);
+  border: 2px solid rgba(255,255,255,.18);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px; line-height: 1;
 }
-.rot-arrow {
-  color: #445;
-  font-size: 10px;
-  user-select: none;
+.tb-active .tb-avatar {
+  border-color: var(--gold);
+  animation: tbPulse 1.6s ease-in-out infinite;
 }
-body.theme-95 .rotation-strip { background: #000; border-bottom-color: #002200; }
-body.theme-95 .rot-player { color: #009922; }
-body.theme-95 .rot-player.active {
-  background: rgba(0,255,65,.12);
-  color: #00ff41;
+@keyframes tbPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,215,0,.45); }
+  50%      { box-shadow: 0 0 0 6px rgba(255,215,0,0); }
+}
+.tb-next .tb-avatar { border-style: dashed; border-color: #8899aa; }
+.tb-next-tag {
+  position: absolute; bottom: -7px; left: 50%; transform: translateX(-50%);
+  font-size: 8px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase;
+  background: var(--bg); color: #aab8cc;
+  border: 1px solid #556; border-radius: 6px;
+  padding: 0 5px; white-space: nowrap;
+}
+body.theme-95 .turn-bar { background: #000; border-bottom-color: #002200; }
+body.theme-95 .tb-avatar { background: #000; border-color: #003311; border-radius: 0; }
+body.theme-95 .tb-active .tb-avatar {
   border-color: #00ff41;
-  border-radius: 0;
+  animation: tbPulse95 1.6s ease-in-out infinite;
 }
-body.theme-95 .rot-arrow { color: #003311; }
+@keyframes tbPulse95 {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0,255,65,.4); }
+  50%      { box-shadow: 0 0 0 6px rgba(0,255,65,0); }
+}
+body.theme-95 .tb-next .tb-avatar { border-color: #009922; }
+body.theme-95 .tb-next-tag { background: #000; color: #009922; border-color: #003311; border-radius: 0; }
 .opponent-panel {
   background: var(--surface);
   border-radius: 10px; padding: 6px 10px;
@@ -1194,27 +1210,7 @@ body.theme-95 .btn-sm.sort-active {
 /* ═══════════════════════════════════════════
    SCOREBOARD BAR
 ═══════════════════════════════════════════ */
-.scoreboard-bar {
-  width: 100%; padding: 4px 10px;
-  display: flex; gap: 6px; overflow-x: auto;
-  flex-shrink: 0; scrollbar-width: none;
-  background: rgba(0,0,0,.35);
-  border-bottom: 1px solid rgba(255,255,255,.06);
-  align-items: center;
-}
-.scoreboard-bar:empty { display: none; }
-.sb-chip {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 11px; padding: 3px 9px;
-  background: rgba(255,255,255,.05);
-  border-radius: 12px; white-space: nowrap;
-  border: 1px solid rgba(255,255,255,.08);
-  flex-shrink: 0;
-}
-.sb-chip.sb-me   { border-color: var(--gold); background: rgba(255,215,0,.12); color: #fff; font-weight: 800; }
-.sb-chip.sb-lead { border-color: var(--green); }
-.sb-phase { color: var(--green); font-weight: 800; font-size: 10px; }
-.sb-score { color: #8899aa; font-size: 10px; }
+/* (Old scoreboard chips replaced by the avatar turn bar — see .turn-bar) */
 
 /* ═══════════════════════════════════════════
    WILD DECLARATION MODAL
@@ -1619,11 +1615,6 @@ body.theme-95 .room-badge, body.theme-95 .phase-badge { color: #009922; }
 body.theme-95 .room-badge span, body.theme-95 .phase-badge span { color: #00ff41; }
 body.theme-95 .turn-indicator { font-family: 'VT323', monospace; letter-spacing: 2px; }
 body.theme-95 .turn-indicator.my-turn { color: #00ff41; background: rgba(0,255,65,.1); }
-body.theme-95 .scoreboard-bar { background: #000; border-bottom: 1px solid #002200; }
-body.theme-95 .sb-chip { background: #000; border-color: #003311; color: #00aa22; border-radius: 0; }
-body.theme-95 .sb-chip.sb-me { border-color: #00ff41; background: rgba(0,255,65,.08); color: #00ff41; }
-body.theme-95 .sb-phase { color: #00ff41; }
-body.theme-95 .sb-score { color: #005511; }
 
 /* Opponent panels */
 body.theme-95 .opponents-area { background: transparent; }
@@ -2405,9 +2396,12 @@ body.opt-mobile .phase-badge { font-size: 11px; }
 body.opt-mobile .hud-phase-visual { display: none; }
 body.opt-mobile .settings-gear-btn { width: 32px; height: 32px; font-size: 18px; }
 
-/* Scoreboard — narrower chips, horizontal scroll */
-body.opt-mobile .scoreboard-bar { padding: 4px 6px; gap: 4px; overflow-x: auto; flex-wrap: nowrap; }
-body.opt-mobile .sb-chip { font-size: 11px; padding: 3px 8px; flex-shrink: 0; }
+/* Turn bar — slightly tighter on phones, scrolls if 5-6 players.
+   auto-margins center the group when it fits but keep the left edge
+   reachable when it overflows (justify-content:center would clip it) */
+body.opt-mobile .turn-bar { gap: 12px; padding: 4px 8px 7px; justify-content: flex-start; }
+body.opt-mobile .turn-bar .tb-player:first-child { margin-left: auto; }
+body.opt-mobile .turn-bar .tb-player:last-child { margin-right: auto; }
 
 /* Opponents — compact horizontal strip */
 body.opt-mobile .opponents-area {
@@ -2487,16 +2481,28 @@ body.opt-mobile .hand-zone {
   max-height: calc(var(--card-h) * 2 + 18px);
 }
 
-/* Action bar — bigger touch targets ≥44px tall */
-body.opt-mobile .action-bar { gap: 6px; margin-top: 10px; }
+/* Action bar — bigger touch targets ≥44px tall, single row on phones.
+   Sort buttons + chat stay fixed-width; Lay Down / Discard share the rest.
+   Font scales with viewport so the row fits from 320px up. */
+body.opt-mobile .action-bar {
+  gap: 5px;
+  margin-top: 10px;
+  flex-wrap: nowrap;
+}
 body.opt-mobile .action-bar .btn-sm {
   min-height: 44px;
-  padding: 10px 14px;
-  font-size: 14px;
+  padding: 10px 6px;
+  font-size: clamp(11px, 3.4vw, 14px);
   border-radius: 10px;
 }
-body.opt-mobile .sort-group { gap: 4px; }
-body.opt-mobile .sort-group .btn-sm { min-width: 44px; padding: 10px 8px; }
+body.opt-mobile .action-bar .btn-lay,
+body.opt-mobile .action-bar .btn-discard {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+body.opt-mobile .sort-group { gap: 4px; flex: 0 0 auto; }
+body.opt-mobile .sort-group .btn-sm { min-width: 42px; padding: 10px 6px; }
+body.opt-mobile .action-bar .chat-inline-btn { flex: 0 0 auto; min-width: 42px; }
 body.opt-mobile .drag-hint { display: none; }
 
 /* Chat panel — near-full width when open on a phone */
@@ -2526,6 +2532,21 @@ body.opt-mobile .settings-panel {
 @media (max-width: 600px) {
   .top-bar { height: 44px; padding: 0 10px; }
   .turn-indicator { font-size: 14px; padding: 4px 8px; }
+
+  /* Single-row action bar even if the mobile layout setting is off */
+  .action-bar { gap: 5px; flex-wrap: nowrap; }
+  .action-bar .btn-sm { padding: 8px 6px; font-size: clamp(11px, 3.4vw, 14px); }
+  .action-bar .btn-lay,
+  .action-bar .btn-discard { flex: 1 1 auto; min-width: 0; }
+  .sort-group { flex: 0 0 auto; }
+  .sort-group .btn-sm { min-width: 42px; }
+  .action-bar .chat-inline-btn { flex: 0 0 auto; min-width: 42px; }
+  .drag-hint { display: none; }
+}
+
+/* Very narrow phones — shorten "Lay Down Phase" so the row always fits */
+@media (max-width: 400px) {
+  .btn-lay .lay-word { display: none; }
 }
 
 /* ══════════════════════════════════════════════
