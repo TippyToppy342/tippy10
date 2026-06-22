@@ -63,10 +63,36 @@ const GOOUT_MOMENTS = [
   { img: 'images/tippy2/tippy2-sweaters.jpeg',text: '🧶 went out! The fan club goes wild!' },
   { img: 'images/tippy2/tippy2-brewery.jpeg', text: '🍻 went out! Drinks are on Tippy!' },
 ];
+// ── Seasonal (4th of July) popup variants — used when body.season-july4 is on.
+//    Reuse existing Tippy photos with festive captions (no new images needed). ──
+const JULY4_PHASE_MOMENTS = [
+  { img: 'images/tippy/tippy-happy.jpeg',     text: '🎆 Phase down! Tippy lights the fireworks!' },
+  { img: 'images/tippy/tippy-standup.jpeg',   text: '🇺🇸 Star-spangled play! Tippy salutes!' },
+  { img: 'images/tippy/tippy-lick.jpeg',      text: '🌭 Hot dog! Tippy loves that one!' },
+  { img: 'images/tippy/tippy-park.jpeg',      text: '🎇 BOOM! Tippy says that was explosive!' },
+  { img: 'images/tippy/tippy-carseat.jpeg',   text: '🎉 Red, white, and WOOF!' },
+  { img: 'images/tippy/tippy-window.jpeg',    text: '🔭 Tippy spots a firework-worthy move!' },
+];
+const JULY4_SKIP_MOMENTS = [
+  { img: 'images/tippy/tippy-cone.jpeg',      text: '⊘ Skipped! No sparklers for you.' },
+  { img: 'images/tippy/tippy-yawn.jpeg',      text: '🥱 Skip! You fizzled out like a dud firework.' },
+  { img: 'images/tippy/tippy-sideeye.jpeg',   text: '😑 Skipped. Tippy waves a tiny flag in pity.' },
+  { img: 'images/tippy2/tippy2-squish.jpeg',  text: '🎆 Skipped! That one was all fizzle, no bang.' },
+];
+const JULY4_GOOUT_MOMENTS = [
+  { img: 'images/tippy/tippy-happy.jpeg',     text: '🎆 went out! Grand finale!' },
+  { img: 'images/tippy/tippy-park.jpeg',      text: '🇺🇸 went out! Tippy salutes a champion!' },
+  { img: 'images/tippy/tippy-carseat.jpeg',   text: '🎇 went out! Fireworks for you!' },
+  { img: 'images/tippy/tippy-lick.jpeg',      text: '🌭 went out! Cookout MVP!' },
+  { img: 'images/tippy2/tippy2-zoomies.jpeg', text: '💥 went out! Independence-day zoomies!' },
+];
+function isSeasonJuly4() {
+  return typeof document !== 'undefined' && document.body.classList.contains('season-july4');
+}
 let _phaseMomentIdx = 0, _skipMomentIdx = 0, _goOutMomentIdx = 0;
-function nextPhaseMoment()  { return PHASE_DOWN_MOMENTS[_phaseMomentIdx++  % PHASE_DOWN_MOMENTS.length]; }
-function nextSkipMoment()   { return SKIP_MOMENTS[_skipMomentIdx++   % SKIP_MOMENTS.length]; }
-function nextGoOutMoment()  { return GOOUT_MOMENTS[_goOutMomentIdx++ % GOOUT_MOMENTS.length]; }
+function nextPhaseMoment()  { const p = isSeasonJuly4() ? JULY4_PHASE_MOMENTS : PHASE_DOWN_MOMENTS; return p[_phaseMomentIdx++ % p.length]; }
+function nextSkipMoment()   { const p = isSeasonJuly4() ? JULY4_SKIP_MOMENTS  : SKIP_MOMENTS;       return p[_skipMomentIdx++  % p.length]; }
+function nextGoOutMoment()  { const p = isSeasonJuly4() ? JULY4_GOOUT_MOMENTS : GOOUT_MOMENTS;      return p[_goOutMomentIdx++ % p.length]; }
 
 async function broadcastPopup(text, img) {
   if (!localState.roomCode) return;
@@ -1178,20 +1204,24 @@ function launchConfetti() {
   const colors = document.body.classList.contains('season-july4')
     ? ['#b22234','#ffffff','#3457b2','#ff5d6c','#5b8cff','#e8eef7']
     : ['#ffd700','#ff6b6b','#4ecdc4','#45b7d1','#96e6a1','#ffd93d','#ff6fb7','#a29bfe','#fd79a8'];
+  const july4 = document.body.classList.contains('season-july4');
   const shapes = [2, 4, 50]; // border-radius values: square, slightly rounded, circle
   for (let i = 0; i < 150; i++) {
     const el  = document.createElement('div');
     el.className = 'confetti-piece';
     const size = 6 + Math.random() * 10;
-    const br   = shapes[Math.floor(Math.random() * shapes.length)];
+    // During the 4th of July season, sprinkle in star-shaped pieces
+    const isStar = july4 && Math.random() < 0.4;
+    if (isStar) el.classList.add('confetti-star');
+    const br = shapes[Math.floor(Math.random() * shapes.length)];
     el.style.cssText = `
       left:${Math.random() * 100}%;
       background:${colors[Math.floor(Math.random() * colors.length)]};
       animation-delay:${Math.random() * 3}s;
       animation-duration:${3.5 + Math.random() * 2.5}s;
       width:${size}px;
-      height:${size * (0.6 + Math.random() * 1.2)}px;
-      border-radius:${br}%;
+      height:${isStar ? size : size * (0.6 + Math.random() * 1.2)}px;
+      ${isStar ? '' : `border-radius:${br}%;`}
       opacity:${0.7 + Math.random() * 0.3};
     `;
     container.appendChild(el);

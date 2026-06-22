@@ -2381,31 +2381,17 @@ body.theme-95 .card.card-just-drawn {
 }
 body.opt-noanimations .card.card-just-drawn { animation: none; box-shadow: none; }
 
-/* ── Pick-up animation — a card slides up out of the pile that was drawn from,
-   so every player can see whether a draw came from the Draw or Discard pile.
-   The element is positioned over the pile (fixed coords) by playPickupAnimation. */
-@keyframes pickup-slide-out {
-  0%   { transform: translateY(0)     scale(1);   opacity: 0; }
-  20%  { transform: translateY(-6px)  scale(1.03); opacity: 1; }
-  100% { transform: translateY(-58px) scale(.92); opacity: 0; }
+/* ── Pick-up animation — the pile that was drawn from briefly pulses a gold
+   glow, so every player can see whether a draw came from the Draw or Discard
+   pile. Applied by playPickupAnimation to the pile's inner card element.
+   (Gold, to stay distinct from the green "ready to draw" glow.) */
+@keyframes pickup-glow-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(255,215,0,0),   0 4px 12px rgba(0,0,0,.4); }
+  35%  { box-shadow: 0 0 0 3px #ffd700, 0 0 22px 7px rgba(255,215,0,.85), 0 4px 12px rgba(0,0,0,.4); }
+  100% { box-shadow: 0 0 0 0 rgba(255,215,0,0),   0 4px 12px rgba(0,0,0,.4); }
 }
-.pickup-fx {
-  position: fixed;
-  z-index: 200;
-  border-radius: var(--radius);
-  border: 2px solid rgba(255,255,255,.25);
-  box-shadow: 0 6px 16px rgba(0,0,0,.5);
-  pointer-events: none;
-  /* Default = drawn from the face-down Draw pile: striped card back */
-  background: repeating-linear-gradient(45deg, #1a3a6b 0 4px, #0d2647 4px 8px);
-  animation: pickup-slide-out .7s cubic-bezier(.34,1.4,.64,1) forwards;
-}
-/* Drawn from the Discard pile: a plain face card surface (no value revealed) */
-.pickup-fx.from-discard {
-  background: linear-gradient(145deg, #e9edf3, #cfd6e2);
-  border-color: rgba(0,0,0,.2);
-}
-body.opt-noanimations .pickup-fx { display: none; }
+.pickup-glow { animation: pickup-glow-pulse .9s ease-out; }
+body.opt-noanimations .pickup-glow { animation: none; }
 
 /* ══════════════════════════════════════════════
    SEASONAL THEME — 4TH OF JULY (body.season-july4)
@@ -2478,6 +2464,14 @@ body.opt-noanimations .season-fw { display: none; }
 /* Bigger, brighter bursts on the win / round-end screens */
 .season-fw-win { opacity: .95; z-index: 1; }
 .season-fw-win .fw { animation-duration: 2.4s; }
+/* Festive player icons — hidden until the season is active */
+.icon-option.season-only { display: none; }
+body.season-july4 .icon-option.season-only { display: block; }
+/* Star-shaped confetti pieces (mixed in during the 4th of July win screen) */
+.confetti-piece.confetti-star {
+  border-radius: 0;
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
 
 /* ══════════════════════════════════════════════
    MOBILE LAYOUT (body.opt-mobile)

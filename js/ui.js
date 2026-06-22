@@ -285,25 +285,19 @@ function renderPhaseVisual(phaseObj) {
 let _prevTurn = null;
 
 // ── Pick-up animation ──
-// Slides a card up out of whichever pile a player drew from, so everyone can
+// Briefly pulses a glow on whichever pile a player drew from, so everyone can
 // see at a glance whether the draw came from the Draw pile or the Discard pile.
 // `source` is 'draw' or 'discard'.
 export function playPickupAnimation(source) {
   if (document.body.classList.contains('opt-noanimations')) return;
   const pile = document.getElementById(source === 'discard' ? 'discard-pile' : 'draw-pile');
   if (!pile) return;
-  const r = pile.getBoundingClientRect();
-  if (!r.width) return; // pile not visible
-  const fx = document.createElement('div');
-  fx.className = 'pickup-fx' + (source === 'discard' ? ' from-discard' : '');
-  fx.style.left   = `${r.left}px`;
-  fx.style.top    = `${r.top}px`;
-  fx.style.width  = `${r.width}px`;
-  fx.style.height = `${r.height}px`;
-  document.body.appendChild(fx);
-  fx.addEventListener('animationend', () => fx.remove());
-  // Safety net in case animationend doesn't fire
-  setTimeout(() => fx.remove(), 1200);
+  // Glow the inner card element so the highlight hugs the card's shape
+  const target = pile.querySelector('.pile-back, .discard-top-card') || pile;
+  target.classList.remove('pickup-glow');
+  void target.offsetWidth;            // force reflow so the animation restarts
+  target.classList.add('pickup-glow');
+  setTimeout(() => target.classList.remove('pickup-glow'), 1000);
 }
 
 // ── Render full board ──
