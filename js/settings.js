@@ -13,7 +13,46 @@ const DEFAULT_SETTINGS = {
   showcardcount: false,    // always show opponent card counts
   chatnotify: true,        // sound + popup when a new chat arrives while panel is closed
   mobilemode: 'auto',      // 'auto' | 'on' | 'off' — Mobile layout override
+  seasonal: true,          // auto date-bounded seasonal themes (e.g. 4th of July)
 };
+
+// ── Seasonal themes ──────────────────────────
+// Each entry maps a date window (MM-DD, inclusive) to a body class. The active
+// season is auto-detected from today's date and only layers on the STANDARD
+// theme. To add a new season later, just add a row here + a matching
+// `body.season-<id>` CSS block — no other code changes needed.
+const SEASONS = [
+  { id: 'july4', cls: 'season-july4', start: '06-24', end: '07-04' },
+];
+
+// Preview override via URL: ?season=july4 forces a season on (any date),
+// ?season=off forces all seasons off. Returns:
+//   undefined → no override (use the date schedule)
+//   null      → force seasons off
+//   season    → force this season on
+// Handy for previewing a look outside its window or testing future seasons.
+function getSeasonOverride() {
+  try {
+    const p = new URLSearchParams(window.location.search).get('season');
+    if (!p) return undefined;
+    if (p === 'off' || p === 'none') return null;
+    return SEASONS.find(s => s.id === p) || undefined;
+  } catch (e) { return undefined; }
+}
+
+// Return the active season for `now`, or null. Handles windows that wrap the
+// year boundary (start > end), e.g. a winter season spanning Dec–Jan.
+function getActiveSeason(now = new Date()) {
+  const mmdd = String(now.getMonth() + 1).padStart(2, '0') + '-' +
+               String(now.getDate()).padStart(2, '0');
+  for (const s of SEASONS) {
+    const inRange = s.start <= s.end
+      ? (mmdd >= s.start && mmdd <= s.end)
+      : (mmdd >= s.start || mmdd <= s.end);
+    if (inRange) return s;
+  }
+  return null;
+}
 
 // ── Mobile auto-detect ──
 // Coarse pointer (finger) OR narrow viewport (< 768px) counts as mobile.
@@ -69,6 +108,20 @@ function applyAllSettings() {
   // Scanline overlay visibility
   const scanline = document.getElementById('scanline-overlay');
   if (scanline) scanline.style.display = _settings.theme === '95' ? 'block' : 'none';
+
+  // ── Seasonal theme (auto, date-bounded) ──
+  // Clear any previous season class, then apply the current one — but only
+  // when seasonal themes are enabled AND the base theme is standard.
+  SEASONS.forEach(s => b.classList.remove(s.cls));
+  const onStandard = (_settings.theme || 'standard') === 'standard';
+  const override = getSeasonOverride();
+  if (override !== undefined) {
+    // Explicit URL override: bypasses the date schedule and the toggle.
+    if (override && onStandard) b.classList.add(override.cls);
+  } else if (_settings.seasonal !== false && onStandard) {
+    const season = getActiveSeason();
+    if (season) b.classList.add(season.cls);
+  }
 }
 
 // Re-evaluate mobile mode when the viewport changes (only matters in 'auto')
@@ -102,6 +155,7 @@ function syncPanelUI() {
     'opt-noanimations':  'noanimations',
     'opt-showcardcount': 'showcardcount',
     'opt-chatnotify':    'chatnotify',
+    'opt-seasonal':      'seasonal',
   };
   for (const [id, key] of Object.entries(checkboxMap)) {
     const el = document.getElementById(id);

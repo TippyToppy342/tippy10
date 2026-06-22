@@ -12,7 +12,7 @@
 
 import { localState, updateActionButtons } from './game.js';
 import { buildDeck, shuffle, cardPoints, validatePhase, canHit, firebaseToArray, PHASES, sortGroupForDisplay } from './cards.js';
-import { renderBoard, renderHand, showMessage, showScreen, showTippyPopup, showRoundEndScreen } from './ui.js';
+import { renderBoard, renderHand, showMessage, showScreen, showTippyPopup, showRoundEndScreen, playPickupAnimation } from './ui.js';
 import { playAiTurn, TIPPY_DIFFICULTIES } from './ai.js';
 
 const SOLO_SAVE_KEY = 'tippy10_solo_save';
@@ -194,6 +194,8 @@ export async function soloDraw(source) {
   if (typeof window.applySortMode === 'function') window.applySortMode();
   // Animate the just-drawn card lowering into the hand
   if (typeof window.flagJustDrawnCard === 'function') window.flagJustDrawnCard(drawn.id);
+  // Slide-out pick-up animation on the pile that was drawn from
+  playPickupAnimation(source);
   renderBoard(data, localState);
   renderHand(localState);
   updateActionButtons();
@@ -516,6 +518,8 @@ function makeAiSoloAdapter() {
       ai.hand.push(drawn);
       ai.handCount = ai.hand.length;
       data.turnPhase = 'play';
+      // Slide-out pick-up animation so you can see which pile the AI drew from
+      playPickupAnimation(source);
       renderBoard(data, localState);
       return drawn;
     },

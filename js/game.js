@@ -6,7 +6,7 @@ import { db, authReady } from './firebase-config.js';
 import { ref, set, get, update, remove, onValue, push } from
   'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 import { buildDeck, shuffle, cardPoints, validatePhase, canHit, firebaseToArray, PHASES, sortGroupForDisplay } from './cards.js';
-import { renderBoard, renderHand, showMessage, showScreen, showTippyPopup, showRoundEndScreen } from './ui.js';
+import { renderBoard, renderHand, showMessage, showScreen, showTippyPopup, showRoundEndScreen, playPickupAnimation } from './ui.js';
 
 // ── Local state ──
 export let localState = {
@@ -20,6 +20,7 @@ export let localState = {
   selectedCards: [],
   gameData: null,
   lastPopupTs: 0,
+  lastDrawTs: 0,    // ts of the most recent pick-up animation we've played
   sortMode: null,   // 'number' | 'color' | 'wilds' | null — persists across draws
 };
 
@@ -356,9 +357,12 @@ window.createRoom = async function() {
   if (!name) { setLobbyError('Enter your name'); return; }
 
   // Wait for anonymous sign-in before hitting the DB
-  await authReady;
+  const user = await authReady;
 
-  localState.playerId   = 'p_' + Math.random().toString(36).slice(2,8);
+  // Use the stable anonymous auth uid as the player id so refreshing or
+  // re-creating from the same browser maps back to the same record instead
+  // of spawning a duplicate. Fall back to a random id if auth is unavailable.
+  localState.playerId   = user?.uid || ('p_' + Math.random().toString(36).slice(2,8));
   localState.playerName = name;
   localState.roomCode   = room;
   localState.isHost     = true;
@@ -392,15 +396,13 @@ window.joinRoom = async function() {
   if (!room) { setLobbyError('Enter a room code'); return; }
 
   // Wait for anonymous sign-in before hitting the DB
-  await authReady;
+  const user = await authReady;
 
   const roomRef = ref(db, `rooms/${room}`);
   const snap = await get(roomRef);
   if (!snap.exists()) { setLobbyError('Room not found'); return; }
   const data = snap.val();
   if (data.status !== 'waiting') { setLobbyError('Game already started'); return; }
-  const count = Object.keys(data.players || {}).length;
-  if (count >= 6) { setLobbyError('Room is full (max 6)'); return; }
 
   // Password check
   if (data.password) {
@@ -408,14 +410,40 @@ window.joinRoom = async function() {
     if (password !== data.password) { setLobbyError('Wrong password — try again 🔒'); return; }
   }
 
-  localState.playerId   = 'p_' + Math.random().toString(36).slice(2,8);
+  // ── Pick a STABLE player id so re-joining doesn't create duplicate
+  //    "phantom" records. Prefer the anonymous auth uid (stable per browser).
+  //    If that browser already has a record here, reuse it. As a backstop,
+  //    reuse any existing record with the same name. Only mint a fresh id
+  //    when this is genuinely a new player. ──
+  const existingPlayers = data.players || {};
+  const uid = user?.uid;
+  let pid = null;
+  if (uid && existingPlayers[uid]) {
+    pid = uid;                                            // same browser rejoining
+  } else {
+    const nameKey = name.toLowerCase();
+    for (const [id, p] of Object.entries(existingPlayers)) {
+      if ((p.name || '').trim().toLowerCase() === nameKey) { pid = id; break; }
+    }
+    if (!pid) pid = uid || ('p_' + Math.random().toString(36).slice(2,8));
+  }
+  const isNewPlayer = !existingPlayers[pid];
+
+  // Room-full check only applies to genuinely new players
+  if (isNewPlayer && Object.keys(existingPlayers).length >= 6) {
+    setLobbyError('Room is full (max 6)'); return;
+  }
+
+  localState.playerId   = pid;
   localState.playerName = name;
   localState.roomCode   = room;
   localState.isHost     = false;
 
   const updates = {};
-  updates[`rooms/${room}/players/${localState.playerId}`] = { name, icon, phase: 1, score: 0, handCount: 0, phaseDone: false };
-  updates[`rooms/${room}/playerOrder`] = [...(data.playerOrder || []), localState.playerId];
+  updates[`rooms/${room}/players/${pid}`] = { name, icon, phase: 1, score: 0, handCount: 0, phaseDone: false };
+  if (isNewPlayer) {
+    updates[`rooms/${room}/playerOrder`] = [...(data.playerOrder || []), pid];
+  }
   await update(ref(db), updates);
 
   saveSession();
@@ -465,6 +493,17 @@ function handleRoomUpdate(data) {
   // ── Theme sync (host-controlled, reflected to all players) ──
   if (data.theme && window.applyThemeFromFirebase) {
     window.applyThemeFromFirebase(data.theme);
+  }
+
+  // ── Pick-up animation broadcast ──
+  // When any player draws, we record { source, ts } at rooms/<code>/lastDraw.
+  // Every client (including the drawer, via the echoed update) plays the
+  // slide-out on the matching pile. The freshness check stops a stale draw
+  // from replaying when someone rejoins mid-game.
+  if (data.lastDraw && data.lastDraw.ts !== localState.lastDrawTs) {
+    const fresh = (Date.now() - data.lastDraw.ts) < 5000;
+    localState.lastDrawTs = data.lastDraw.ts;
+    if (fresh) playPickupAnimation(data.lastDraw.source);
   }
 
   if (data.status === 'waiting') {
@@ -626,6 +665,9 @@ window.drawCard = async function(source) {
   updates[`rooms/${localState.roomCode}/players/${localState.playerId}/hand`]      = localState.hand;
   updates[`rooms/${localState.roomCode}/players/${localState.playerId}/handCount`] = localState.hand.length;
   updates[`rooms/${localState.roomCode}/turnPhase`] = 'play';
+  // Broadcast which pile was drawn from so every client can play the
+  // slide-out pick-up animation (see handleRoomUpdate).
+  updates[`rooms/${localState.roomCode}/lastDraw`] = { source, ts: Date.now() };
 
   await update(ref(db), updates);
   renderHand(localState);
@@ -1133,7 +1175,9 @@ function launchConfetti() {
   const container = document.getElementById('confetti-container');
   if (!container) return;
   container.innerHTML = '';
-  const colors = ['#ffd700','#ff6b6b','#4ecdc4','#45b7d1','#96e6a1','#ffd93d','#ff6fb7','#a29bfe','#fd79a8'];
+  const colors = document.body.classList.contains('season-july4')
+    ? ['#b22234','#ffffff','#3457b2','#ff5d6c','#5b8cff','#e8eef7']
+    : ['#ffd700','#ff6b6b','#4ecdc4','#45b7d1','#96e6a1','#ffd93d','#ff6fb7','#a29bfe','#fd79a8'];
   const shapes = [2, 4, 50]; // border-radius values: square, slightly rounded, circle
   for (let i = 0; i < 150; i++) {
     const el  = document.createElement('div');

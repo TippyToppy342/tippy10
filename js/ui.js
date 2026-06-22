@@ -284,6 +284,28 @@ function renderPhaseVisual(phaseObj) {
 // ── Track previous turn for "your turn!" notification ──
 let _prevTurn = null;
 
+// ── Pick-up animation ──
+// Slides a card up out of whichever pile a player drew from, so everyone can
+// see at a glance whether the draw came from the Draw pile or the Discard pile.
+// `source` is 'draw' or 'discard'.
+export function playPickupAnimation(source) {
+  if (document.body.classList.contains('opt-noanimations')) return;
+  const pile = document.getElementById(source === 'discard' ? 'discard-pile' : 'draw-pile');
+  if (!pile) return;
+  const r = pile.getBoundingClientRect();
+  if (!r.width) return; // pile not visible
+  const fx = document.createElement('div');
+  fx.className = 'pickup-fx' + (source === 'discard' ? ' from-discard' : '');
+  fx.style.left   = `${r.left}px`;
+  fx.style.top    = `${r.top}px`;
+  fx.style.width  = `${r.width}px`;
+  fx.style.height = `${r.height}px`;
+  document.body.appendChild(fx);
+  fx.addEventListener('animationend', () => fx.remove());
+  // Safety net in case animationend doesn't fire
+  setTimeout(() => fx.remove(), 1200);
+}
+
 // ── Render full board ──
 export function renderBoard(data, localState) {
   const myId  = localState.playerId;
@@ -299,8 +321,16 @@ export function renderBoard(data, localState) {
   const myPhaseDesc = document.getElementById('my-phase-desc');
   if (myPhaseNum)  myPhaseNum.textContent = phaseNum;
   if (myPhaseDesc) myPhaseDesc.innerHTML  = `<span class="phase-visual">${renderPhaseVisual(phaseObj)}</span>`;
-  document.getElementById('my-name-display').textContent =
-    (myPlayer?.icon || '') + ' ' + (myPlayer?.name || '');
+  const myNameText = document.getElementById('my-name-text');
+  if (myNameText) {
+    myNameText.textContent = (myPlayer?.icon || '') + ' ' + (myPlayer?.name || '');
+  } else {
+    // Fallback for older markup without the name/score split
+    document.getElementById('my-name-display').textContent =
+      (myPlayer?.icon || '') + ' ' + (myPlayer?.name || '');
+  }
+  const myScoreText = document.getElementById('my-score-text');
+  if (myScoreText) myScoreText.textContent = `${myPlayer?.score || 0} pts`;
 
   // ── Turn indicator ──
   const isMyTurn    = data.currentTurn === myId;
