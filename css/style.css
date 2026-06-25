@@ -2448,10 +2448,11 @@ body.season-july4 .season-fw { display: block; }
 body.opt-noanimations .season-fw { display: none; }
 .season-fw .fw {
   position: absolute; width: 4px; height: 4px; border-radius: 50%;
+  will-change: transform, opacity;
   box-shadow:
     0 -16px 0 #ff5d6c, 0 16px 0 #5b8cff, -16px 0 0 #fff, 16px 0 0 #ff5d6c,
     11px -11px 0 #5b8cff, -11px 11px 0 #fff, 11px 11px 0 #ff5d6c, -11px -11px 0 #5b8cff;
-  animation: season-fw-burst 2s ease-out infinite;
+  animation: season-fw-burst 2s ease-out both;
 }
 /* Warm-tone burst variant (gold / red / white) — mixed in for variety */
 .season-fw .fw.fw-warm {

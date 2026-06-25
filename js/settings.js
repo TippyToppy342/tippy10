@@ -75,13 +75,13 @@ function tickSeasonFireworks() {
   document.querySelectorAll('.season-fw').forEach(layer => {
     if (layer.offsetParent === null) return;          // not on the visible screen
     const big = layer.classList.contains('season-fw-win');
-    const n = big ? 2 + Math.floor(Math.random() * 2)  // 2–3 per tick on win screens
-                  : (Math.random() < 0.85 ? 1 : 0);    // gentle trickle in-game/lobby
+    const n = big ? 1 + (Math.random() < 0.5 ? 1 : 0) // 1–2 per tick on win screens
+                  : (Math.random() < 0.4 ? 1 : 0);    // occasional burst in-game/lobby
     for (let i = 0; i < n; i++) spawnSeasonBurst(layer, big);
   });
 }
 if (typeof document !== 'undefined') {
-  setInterval(tickSeasonFireworks, 600);
+  setInterval(tickSeasonFireworks, 1300);
 }
 
 // ── Mobile auto-detect ──
