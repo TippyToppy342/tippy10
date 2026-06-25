@@ -2453,17 +2453,23 @@ body.opt-noanimations .season-fw { display: none; }
     11px -11px 0 #5b8cff, -11px 11px 0 #fff, 11px 11px 0 #ff5d6c, -11px -11px 0 #5b8cff;
   animation: season-fw-burst 2s ease-out infinite;
 }
+/* Warm-tone burst variant (gold / red / white) — mixed in for variety */
+.season-fw .fw.fw-warm {
+  box-shadow:
+    0 -16px 0 #ffd54a, 0 16px 0 #ff5d6c, -16px 0 0 #fff, 16px 0 0 #ffd54a,
+    11px -11px 0 #ff5d6c, -11px 11px 0 #fff, 11px 11px 0 #ffd54a, -11px -11px 0 #ff5d6c;
+}
 @keyframes season-fw-burst {
   0%   { transform: scale(.2);  opacity: 0; }
   18%  { opacity: 1; }
-  100% { transform: scale(1.25); opacity: 0; }
+  100% { transform: scale(var(--fw-max, 1.25)); opacity: 0; }
 }
 /* Subtle, smaller bursts during gameplay / lobby */
-.season-fw-ambient { opacity: .45; }
-.season-fw-ambient .fw { transform: scale(.7); }
+.season-fw-ambient { opacity: .6; }
+.season-fw-ambient .fw { --fw-max: .95; }
 /* Bigger, brighter bursts on the win / round-end screens */
-.season-fw-win { opacity: .95; z-index: 1; }
-.season-fw-win .fw { animation-duration: 2.4s; }
+.season-fw-win { opacity: 1; z-index: 1; }
+.season-fw-win .fw { --fw-max: 1.5; animation-duration: 2.4s; }
 /* Festive player icons — hidden until the season is active */
 .icon-option.season-only { display: none; }
 body.season-july4 .icon-option.season-only { display: block; }

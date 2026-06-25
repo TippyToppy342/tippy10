@@ -54,6 +54,36 @@ function getActiveSeason(now = new Date()) {
   return null;
 }
 
+// ── Dynamic fireworks ──
+// While a season is active, continuously spawn small bursts at random positions
+// inside whichever fireworks layers are currently visible. Ambient layers
+// (lobby / game) get a gentle trickle; win layers get a denser show.
+function spawnSeasonBurst(layer, big) {
+  const fw = document.createElement('span');
+  fw.className = 'fw' + (Math.random() < 0.45 ? ' fw-warm' : '');
+  fw.style.left = (4 + Math.random() * 92) + '%';
+  fw.style.top  = (4 + Math.random() * (big ? 82 : 62)) + '%';
+  fw.style.setProperty('--fw-max', ((big ? 1.2 : 0.8) + Math.random() * 0.7).toFixed(2));
+  fw.style.animationDelay = (Math.random() * 0.2).toFixed(2) + 's';
+  layer.appendChild(fw);
+  setTimeout(() => fw.remove(), 2600);
+}
+function tickSeasonFireworks() {
+  const b = document.body;
+  if (b.classList.contains('opt-noanimations')) return;
+  if (!SEASONS.some(s => b.classList.contains(s.cls))) return;
+  document.querySelectorAll('.season-fw').forEach(layer => {
+    if (layer.offsetParent === null) return;          // not on the visible screen
+    const big = layer.classList.contains('season-fw-win');
+    const n = big ? 2 + Math.floor(Math.random() * 2)  // 2–3 per tick on win screens
+                  : (Math.random() < 0.85 ? 1 : 0);    // gentle trickle in-game/lobby
+    for (let i = 0; i < n; i++) spawnSeasonBurst(layer, big);
+  });
+}
+if (typeof document !== 'undefined') {
+  setInterval(tickSeasonFireworks, 600);
+}
+
 // ── Mobile auto-detect ──
 // Coarse pointer (finger) OR narrow viewport (< 768px) counts as mobile.
 function isLikelyMobile() {
