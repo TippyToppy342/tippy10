@@ -43,9 +43,9 @@ const SEASONS = [
     fx: { type: 'burst' } },
 
   { id: 'dan', cls: 'season-dan', start: '09-04', end: '09-08',
-    label: '🎂 Dan Reed Birthday Edition 🎂',
+    label: '🎂 Dan Reid Birthday Edition 🎂',
     fx: { type: 'emoji', chars: ['🎂','👑','🐝','🎈','💍','🍺'], drift: 'up' },
-    person: { name: 'Dan', match: ['dan','danny','daniel','dan reed'] } },
+    person: { name: 'Dan', match: ['dan','danny','daniel','dan reid'] } },
 
   { id: 'halloween', cls: 'season-halloween', start: '10-15', end: '11-01',
     label: '🎃 Halloween Edition 🎃',

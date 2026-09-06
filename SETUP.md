@@ -114,6 +114,57 @@ const firebaseConfig = {
 
 ---
 
+## Seasonal Themes
+
+The game paints itself for the calendar. A season layers on the **Standard**
+theme only, and can be turned off in the ⚙ Options panel.
+
+| Season | Window | Look |
+|--------|--------|------|
+| Julia's Birthday | Jan 29 – Feb 2 | gold, floating balloons |
+| Summer Break | May 25 – Sep 3 | tacos, sushi, In-N-Out, MTV beach house |
+| 4th of July | Jun 24 – Jul 4 | fireworks, red/white/blue (wins over Summer) |
+| Dan Reid's Birthday | Sep 4 – 8 | Dan's photos, name puns, Beyoncé, a taped polaroid on the board |
+| Halloween | Oct 15 – Nov 1 | falling pumpkins, orange/purple |
+| Meg's Birthday | Nov 13 – 17 | autumn colors, balloons |
+| Christmas | Dec 5 – 26 | snowfall, red/green |
+
+**Preview any season on any date** by adding `?season=<id>` to the URL —
+`?season=dan`, `?season=halloween`, `?season=off`, etc.
+
+**Birthday takeover:** during a birthday season, a player whose name matches
+the guest of honour (Dan / Julia / Meg) gets a full-screen "Happy Birthday"
+when round 1 starts.
+
+### Adding a new season
+
+1. Add a row to `SEASONS` in `js/settings.js` (id, date window, banner label,
+   particle effect, and `person` if it's a birthday).
+2. Add a `body.season-<id>` block in `css/style.css` — at minimum
+   `--season-banner-bg`.
+3. Optionally add popup jokes to `SEASON_MOMENTS` in `js/game.js`, a photo
+   reel to `SEASON_GALLERY` and round-end captions to `SEASON_ROUND_END` in
+   `js/ui.js`.
+
+Nothing else needs to change — the engine picks it up.
+
+---
+
+## Getting Someone Back Into a Game
+
+If a player drops mid-game (closed the tab, lost their browser session,
+switched devices):
+
+- Their opponents see them go **🔌 disconnected**, with an **Invite back**
+  button that copies the room's invite link.
+- The invite link (also available from the **Room:** badge in-game and the
+  waiting room) looks like `…/index.html?room=CODE`.
+- Opening it prefills the room code. Entering **the same name they were
+  playing under** drops them back into their seat — same hand, same score,
+  same phase — even though the game has already started.
+
+---
+
 ## Troubleshooting
 
 - **"Room not found"** — double-check the room code (case-insensitive)

@@ -76,7 +76,7 @@ const SEASON_GALLERY = {
     { src: 'images/dan/dan-balcony.jpeg', caption: 'The birthday boy and his co-host 🍺🐾' },
     { src: 'images/dan/dan-wedding.jpeg', caption: 'Dan will now officiate this card game 💍' },
     { src: 'images/dan/dan-couch.jpeg',   caption: 'Tippy has already picked a side 🐾' },
-    { src: 'images/dan/dan-balcony.jpeg', caption: "Reed 'em and weep 😎" },
+    { src: 'images/dan/dan-balcony.jpeg', caption: "Reid 'em and weep 😎" },
     { src: 'images/dan/dan-wedding.jpeg', caption: 'Who run the world? Dan 👑🐝' },
   ],
   halloween: [
@@ -285,7 +285,7 @@ export function showRoundEndScreen(data, localState) {
     dan: {
       first: { img: 'images/dan/dan-couch.jpeg',   caption: '🎂 DANTASTIC job!' },
       last:  { img: 'images/dan/dan-wedding.jpeg', caption: '💍 Dan objects to that performance.' },
-      upper: { img: 'images/dan/dan-balcony.jpeg', caption: '😎 Reed \'em and weep — you\'re climbing.' },
+      upper: { img: 'images/dan/dan-balcony.jpeg', caption: '😎 Reid \'em and weep — you\'re climbing.' },
       lower: { img: 'images/dan/dan-couch.jpeg',   caption: '🛋️ Dan and Tippy are unbothered. You should be worried.' },
     },
     halloween: {
@@ -727,7 +727,7 @@ const BIRTHDAY_LOOK = {
     lines: [
       'Have a DANTASTIC one 🎂',
       'Who run the world? You do 👑🐝',
-      'Reed \'em and weep — it\'s your day 😎',
+      'Reid \'em and weep — it\'s your day 😎',
       'Dan-gerously in love with this birthday 💜',
     ],
   },

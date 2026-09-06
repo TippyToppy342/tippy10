@@ -94,7 +94,7 @@ const SEASON_MOMENTS = {
     ],
   },
 
-  // ── Dan Reed's birthday (Sept 6) — Dan photos + name puns + Beyoncé ──
+  // ── Dan Reid's birthday (Sept 6) — Dan photos + name puns + Beyoncé ──
   //    Only whole photos here: they show Tippy, and Tippy is the point.
   //    Never crop these down to a face.
   dan: {
@@ -103,9 +103,9 @@ const SEASON_MOMENTS = {
       { img: 'images/dan/dan-balcony.jpeg', text: '🍺 Dan and Tippy approve of that play.' },
       { img: 'images/dan/dan-wedding.jpeg', text: '💍 Dan pronounces that phase lawfully laid down.' },
       { img: 'images/dan/dan-couch.jpeg',   text: '👑 Who run the world? Dan does.' },
-      { img: 'images/dan/dan-balcony.jpeg', text: "😎 Reed 'em and weep — that phase is clean." },
+      { img: 'images/dan/dan-balcony.jpeg', text: "😎 Reid 'em and weep — that phase is clean." },
       { img: 'images/dan/dan-wedding.jpeg', text: "🐝 Bey-DAN-cé says that was FLAWLESS." },
-      { img: 'images/dan/dan-couch.jpeg',   text: '📰 Reed all about it — phase complete!' },
+      { img: 'images/dan/dan-couch.jpeg',   text: '📰 Reid all about it — phase complete!' },
       { img: 'images/dan/dan-balcony.jpeg', text: '🎈 Dan-imal! The birthday boy approves.' },
       { img: 'images/dan/dan-wedding.jpeg', text: "🎉 Okay ladies, now let's get in phase-mation." },
       { img: 'images/dan/dan-couch.jpeg',   text: '✨ Dan-tabulous. Absolutely Dan-tabulous.' },
@@ -122,7 +122,7 @@ const SEASON_MOMENTS = {
       { img: 'images/dan/dan-couch.jpeg',   text: '🎂 went out! DANTASTIC job!' },
       { img: 'images/dan/dan-wedding.jpeg', text: '💍 went out! Put a ring on it!' },
       { img: 'images/dan/dan-balcony.jpeg', text: '👑 went out! Dan the Man does it again!' },
-      { img: 'images/dan/dan-couch.jpeg',   text: '📰 went out! Reed all about it!' },
+      { img: 'images/dan/dan-couch.jpeg',   text: '📰 went out! Reid all about it!' },
       { img: 'images/dan/dan-balcony.jpeg', text: '🐝 went out! Flawless. Formation. Finished.' },
       { img: 'images/dan/dan-wedding.jpeg', text: '🎉 went out! Dan-gerously good.' },
     ],
