@@ -19,13 +19,54 @@ const DEFAULT_SETTINGS = {
 // ── Seasonal themes ──────────────────────────
 // Each entry maps a date window (MM-DD, inclusive) to a body class. The active
 // season is auto-detected from today's date and only layers on the STANDARD
-// theme. To add a new season later, just add a row here + a matching
-// `body.season-<id>` CSS block — no other code changes needed.
+// theme. To add a new season later, add a row here + a matching
+// `body.season-<id>` CSS block (+ optional moment pools in game.js) — no other
+// code changes needed.
+//
+//   fx      — the ambient particle layer:
+//               { type:'burst' }                        classic firework sprite
+//               { type:'emoji', chars:[…], drift:'up'|'down' }
+//   label   — text for the .season-banner ribbon
+//   person  — marks a BIRTHDAY season. A player whose name matches gets the
+//             full-screen birthday takeover on round 1 (see ui.js).
+//
+// ORDER MATTERS: the first matching window wins, so narrow/specific seasons
+// (birthdays, holidays) must be listed BEFORE broad ones like Summer Break.
 const SEASONS = [
-  { id: 'july4', cls: 'season-july4', start: '06-24', end: '07-04' },
+  { id: 'julia', cls: 'season-julia', start: '01-29', end: '02-02',
+    label: "💛 Julia's Birthday Edition 💛",
+    fx: { type: 'emoji', chars: ['🎂','💛','🎈','✨','🌻'], drift: 'up' },
+    person: { name: 'Julia', match: ['julia','jules'] } },
+
+  { id: 'july4', cls: 'season-july4', start: '06-24', end: '07-04',
+    label: '🎆 4th of July Edition 🎆',
+    fx: { type: 'burst' } },
+
+  { id: 'dan', cls: 'season-dan', start: '09-04', end: '09-08',
+    label: '🎂 Dan Reed Birthday Edition 🎂',
+    fx: { type: 'emoji', chars: ['🎂','👑','🐝','🎈','💍','🍺'], drift: 'up' },
+    person: { name: 'Dan', match: ['dan','danny','daniel','dan reed'] } },
+
+  { id: 'halloween', cls: 'season-halloween', start: '10-15', end: '11-01',
+    label: '🎃 Halloween Edition 🎃',
+    fx: { type: 'emoji', chars: ['🎃','👻','🦇','🕸️','🍬'], drift: 'down' } },
+
+  { id: 'meg', cls: 'season-meg', start: '11-13', end: '11-17',
+    label: "🍁 Meg's Birthday Edition 🍁",
+    fx: { type: 'emoji', chars: ['🎂','🍁','🎈','✨','🥧'], drift: 'up' },
+    person: { name: 'Meg', match: ['meg','megan','meghan'] } },
+
+  { id: 'christmas', cls: 'season-christmas', start: '12-05', end: '12-26',
+    label: '🎄 Christmas Edition 🎄',
+    fx: { type: 'emoji', chars: ['❄️','🎄','🎁','⭐','🔔'], drift: 'down' } },
+
+  // Broad catch-all — listed last so July 4th and Dan's birthday win their days.
+  { id: 'summer', cls: 'season-summer', start: '05-25', end: '09-03',
+    label: '🌴 Summer Break Edition 🌴',
+    fx: { type: 'emoji', chars: ['🌴','🌮','🍣','🍔','🕶️','🌊','🍹'], drift: 'up' } },
 ];
 
-// Preview override via URL: ?season=july4 forces a season on (any date),
+// Preview override via URL: ?season=dan forces a season on (any date),
 // ?season=off forces all seasons off. Returns:
 //   undefined → no override (use the date schedule)
 //   null      → force seasons off
@@ -54,11 +95,48 @@ function getActiveSeason(now = new Date()) {
   return null;
 }
 
-// ── Dynamic fireworks ──
-// While a season is active, continuously spawn small bursts at random positions
-// inside whichever fireworks layers are currently visible. Ambient layers
-// (lobby / game) get a gentle trickle; win layers get a denser show.
-function spawnSeasonBurst(layer, big) {
+// The season currently painted on <body> (null when none). Everything else in
+// the app keys off this rather than re-deriving dates.
+function activeSeasonDef() {
+  if (typeof document === 'undefined') return null;
+  return SEASONS.find(s => document.body.classList.contains(s.cls)) || null;
+}
+
+// ── Public season helpers (used by game.js / ui.js / solo.js) ──
+window.getActiveSeasonId = function() { const s = activeSeasonDef(); return s ? s.id : null; };
+/** The birthday person for the active season, or null. */
+window.getSeasonPerson  = function() { const s = activeSeasonDef(); return (s && s.person) ? s.person : null; };
+/** True when `name` is the guest of honour of the active birthday season. */
+window.isSeasonBirthdayName = function(name) {
+  const person = window.getSeasonPerson();
+  if (!person || !name) return false;
+  const n = String(name).trim().toLowerCase();
+  return (person.match || []).some(m => n === m || n.startsWith(m + ' '));
+};
+
+// ── Dynamic season particles ──
+// While a season is active, continuously spawn small effects at random
+// positions inside whichever season layers are currently visible. Ambient
+// layers (lobby / game) get a gentle trickle; win layers get a denser show.
+function spawnSeasonBurst(layer, big, season) {
+  const fx = (season && season.fx) || { type: 'burst' };
+
+  if (fx.type === 'emoji') {
+    const el = document.createElement('span');
+    const falling = fx.drift === 'down';
+    el.className = 'sfx-emoji' + (falling ? ' sfx-fall' : '');
+    const chars = fx.chars && fx.chars.length ? fx.chars : ['✨'];
+    el.textContent = chars[Math.floor(Math.random() * chars.length)];
+    el.style.left = (2 + Math.random() * 94) + '%';
+    el.style.top  = falling ? '-10%' : (50 + Math.random() * 45) + '%';
+    el.style.fontSize = Math.round((big ? 22 : 15) + Math.random() * 14) + 'px';
+    el.style.setProperty('--sfx-drift', Math.round(Math.random() * 70 - 35) + 'px');
+    el.style.animationDuration = ((big ? 3.4 : 4.4) + Math.random() * 2).toFixed(2) + 's';
+    layer.appendChild(el);
+    setTimeout(() => el.remove(), 7200);
+    return;
+  }
+
   const fw = document.createElement('span');
   fw.className = 'fw' + (Math.random() < 0.45 ? ' fw-warm' : '');
   fw.style.left = (4 + Math.random() * 92) + '%';
@@ -71,13 +149,14 @@ function spawnSeasonBurst(layer, big) {
 function tickSeasonFireworks() {
   const b = document.body;
   if (b.classList.contains('opt-noanimations')) return;
-  if (!SEASONS.some(s => b.classList.contains(s.cls))) return;
+  const season = activeSeasonDef();
+  if (!season) return;
   document.querySelectorAll('.season-fw').forEach(layer => {
     if (layer.offsetParent === null) return;          // not on the visible screen
     const big = layer.classList.contains('season-fw-win');
     const n = big ? 1 + (Math.random() < 0.5 ? 1 : 0) // 1–2 per tick on win screens
                   : (Math.random() < 0.4 ? 1 : 0);    // occasional burst in-game/lobby
-    for (let i = 0; i < n; i++) spawnSeasonBurst(layer, big);
+    for (let i = 0; i < n; i++) spawnSeasonBurst(layer, big, season);
   });
 }
 if (typeof document !== 'undefined') {
@@ -145,13 +224,21 @@ function applyAllSettings() {
   SEASONS.forEach(s => b.classList.remove(s.cls));
   const onStandard = (_settings.theme || 'standard') === 'standard';
   const override = getSeasonOverride();
+  let activeSeason = null;
   if (override !== undefined) {
     // Explicit URL override: bypasses the date schedule and the toggle.
-    if (override && onStandard) b.classList.add(override.cls);
+    if (override && onStandard) activeSeason = override;
   } else if (_settings.seasonal !== false && onStandard) {
-    const season = getActiveSeason();
-    if (season) b.classList.add(season.cls);
+    activeSeason = getActiveSeason();
   }
+  if (activeSeason) b.classList.add(activeSeason.cls);
+  // Generic hook so shared season chrome (particle layers, banner, festive
+  // icons) can be styled once instead of per-season.
+  b.classList.toggle('season-on', !!activeSeason);
+  // Banner ribbon text (win + round-end screens)
+  document.querySelectorAll('.season-banner span').forEach(el => {
+    if (activeSeason) el.textContent = activeSeason.label;
+  });
 }
 
 // Re-evaluate mobile mode when the viewport changes (only matters in 'auto')

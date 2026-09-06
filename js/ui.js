@@ -67,6 +67,74 @@ const GALLERY = [
   { src: 'images/tippy2/tippy2-polaroid.jpeg',  caption: 'Vintage Tippy, certified classic 📸' },
   { src: 'images/tippy2/tippy2-carrier.jpeg',   caption: 'Tippy travels for game night ✈️' },
 ];
+// ── Seasonal galleries ──
+// A season listed here takes over the waiting-room slideshow entirely;
+// anything not listed keeps the standard Tippy reel.
+const SEASON_GALLERY = {
+  dan: [
+    { src: 'images/dan/dan-couch.jpeg',   caption: "It's Dan's birthday — the table is his 🎂" },
+    { src: 'images/dan/dan-balcony.jpeg', caption: 'The birthday boy and his co-host 🍺🐾' },
+    { src: 'images/dan/dan-wedding.jpeg', caption: 'Dan will now officiate this card game 💍' },
+    { src: 'images/dan/dan-couch.jpeg',   caption: 'Tippy has already picked a side 🐾' },
+    { src: 'images/dan/dan-balcony.jpeg', caption: "Reed 'em and weep 😎" },
+    { src: 'images/dan/dan-wedding.jpeg', caption: 'Who run the world? Dan 👑🐝' },
+  ],
+  halloween: [
+    { src: 'images/tippy2/tippy2-pumpkin.jpeg',   caption: 'Tippy the pug-o-lantern 🎃' },
+    { src: 'images/tippy/tippy-peeking.jpeg',     caption: 'Something is watching you… 👻' },
+    { src: 'images/tippy2/tippy2-staredown.jpeg', caption: 'The spooky staredown 🦇' },
+    { src: 'images/tippy/tippy-closeup.jpeg',     caption: 'Trick or treat? 🍬' },
+    { src: 'images/tippy2/tippy2-blanketnap.jpeg',caption: 'Tippy in his ghost costume 👻' },
+  ],
+  christmas: [
+    { src: 'images/tippy2/tippy2-sweaters.jpeg',  caption: 'Matching holiday sweaters 🧶' },
+    { src: 'images/tippy/tippy-blanket.jpeg',     caption: 'Tippy is on the nice list 🎄' },
+    { src: 'images/tippy2/tippy2-naptime.jpeg',   caption: 'Visions of sugarplums 💤' },
+    { src: 'images/tippy/tippy-pinkblanket.jpeg', caption: 'Waiting up for Santa 🎁' },
+    { src: 'images/tippy2/tippy2-donutbed.jpeg',  caption: 'Tippy after Christmas dinner 🫠' },
+  ],
+  summer: [
+    { src: 'images/tippy2/tippy2-lifejacket.jpeg',caption: 'Captain Tippy, summer edition ⛵' },
+    { src: 'images/tippy2/tippy2-sunspot.jpeg',   caption: 'Beach house, obviously ☀️' },
+    { src: 'images/tippy/tippy-car.jpeg',         caption: 'Taco run — everybody in 🌮' },
+    { src: 'images/tippy2/tippy2-brewery.jpeg',   caption: 'Summer Break house party 🍹' },
+    { src: 'images/tippy/tippy-park.jpeg',        caption: 'Animal Style, extra fries 🍔' },
+    { src: 'images/tippy2/tippy2-daisy.jpeg',     caption: 'Tippy in his summer era 🌴' },
+  ],
+};
+function activeSeasonId() {
+  try { return window.getActiveSeasonId ? window.getActiveSeasonId() : null; } catch (e) { return null; }
+}
+
+// ── Taped polaroid ──
+// A photo taped to the corner of the table during a photo season. The picture
+// changes each round, so a whole game shows the whole set. Whole photos only —
+// they're framed 3:4, the shape the pictures already are, so nothing gets
+// cropped down to a face.
+const SEASON_POLAROID = {
+  dan: [
+    { src: 'images/dan/dan-couch.jpeg',   caption: 'Dan & Tippy, HQ' },
+    { src: 'images/dan/dan-balcony.jpeg', caption: 'Rooftop shift 🍺' },
+    { src: 'images/dan/dan-wedding.jpeg', caption: 'Officiant Dan 💍' },
+  ],
+};
+function updateSeasonPolaroid(data) {
+  const fig = document.getElementById('season-polaroid');
+  if (!fig) return;
+  const pool = SEASON_POLAROID[activeSeasonId()];
+  if (!pool || !pool.length) return;
+  const pick = pool[(((data && data.handNum) || 1) - 1) % pool.length];
+  const img = document.getElementById('season-polaroid-img');
+  const cap = document.getElementById('season-polaroid-cap');
+  if (img && !img.src.endsWith(pick.src)) { img.src = pick.src; img.alt = pick.caption; }
+  if (cap) cap.textContent = pick.caption;
+}
+function galleryPool() {
+  const id = activeSeasonId();
+  const pool = id && SEASON_GALLERY[id];
+  return (pool && pool.length) ? pool : GALLERY;
+}
+
 let _galleryIdx = 0;
 let _galleryTimer = null;
 let _galleryPending = null;
@@ -75,7 +143,7 @@ function startGallery() {
   _galleryIdx = 0;
   updateGallery();
   _galleryTimer = setInterval(() => {
-    _galleryIdx = (_galleryIdx + 1) % GALLERY.length;
+    _galleryIdx = (_galleryIdx + 1) % galleryPool().length;
     updateGallery();
   }, 3500);
 }
@@ -90,7 +158,8 @@ function updateGallery() {
   const img = document.getElementById('gallery-img');
   const cap = document.getElementById('gallery-caption');
   if (!img || !cap) return;
-  const { src, caption } = GALLERY[_galleryIdx];
+  const pool = galleryPool();
+  const { src, caption } = pool[_galleryIdx % pool.length];
   // Cancel any previous in-flight preload
   if (_galleryPending) { _galleryPending.onload = null; _galleryPending = null; }
   // Preload the new image; only swap src + caption together once it's ready
@@ -198,21 +267,57 @@ export function showRoundEndScreen(data, localState) {
   const myRank = sorted.indexOf(localState.playerId);
   const total  = sorted.length;
 
-  // Pick Tippy photo + caption based on my rank
-  let tippyImg, tippyCaption;
-  if (myRank === 0) {
-    tippyImg    = 'images/tippy/tippy-happy.jpeg';
-    tippyCaption = '🐾 Tippy says you\'re crushing it!';
-  } else if (myRank === total - 1) {
-    tippyImg    = 'images/tippy/tippy-cone.jpeg';
-    tippyCaption = '😂 Cone of shame... but there\'s still time!';
-  } else if (myRank < total / 2) {
-    tippyImg    = 'images/tippy/tippy-alert.jpeg';
-    tippyCaption = '👀 Tippy is watching your every move!';
-  } else {
-    tippyImg    = 'images/tippy/tippy-yawn.jpeg';
-    tippyCaption = '🥱 Tippy is not impressed...';
-  }
+  // Pick photo + caption based on how I placed. Winning the round (going out,
+  // or sitting top of the table) gets the celebration slot — during a season
+  // that's where the seasonal payoff lands, e.g. "DANTASTIC job!".
+  const wonRound = (goOutPid === localState.playerId) || myRank === 0;
+  const bucket = wonRound ? 'first'
+               : myRank === total - 1 ? 'last'
+               : myRank < total / 2 ? 'upper'
+               : 'lower';
+  const STANDARD_ROUND_END = {
+    first: { img: 'images/tippy/tippy-happy.jpeg', caption: '🐾 Tippy says you\'re crushing it!' },
+    last:  { img: 'images/tippy/tippy-cone.jpeg',  caption: '😂 Cone of shame... but there\'s still time!' },
+    upper: { img: 'images/tippy/tippy-alert.jpeg', caption: '👀 Tippy is watching your every move!' },
+    lower: { img: 'images/tippy/tippy-yawn.jpeg',  caption: '🥱 Tippy is not impressed...' },
+  };
+  const SEASON_ROUND_END = {
+    dan: {
+      first: { img: 'images/dan/dan-couch.jpeg',   caption: '🎂 DANTASTIC job!' },
+      last:  { img: 'images/dan/dan-wedding.jpeg', caption: '💍 Dan objects to that performance.' },
+      upper: { img: 'images/dan/dan-balcony.jpeg', caption: '😎 Reed \'em and weep — you\'re climbing.' },
+      lower: { img: 'images/dan/dan-couch.jpeg',   caption: '🛋️ Dan and Tippy are unbothered. You should be worried.' },
+    },
+    halloween: {
+      first: { img: 'images/tippy2/tippy2-pumpkin.jpeg', caption: '🎃 King of the pumpkin patch!' },
+      last:  { img: 'images/tippy/tippy-cone.jpeg',      caption: '👻 Spooky. And not in a good way.' },
+      upper: { img: 'images/tippy2/tippy2-staredown.jpeg',caption: '🦇 Creeping up the standings…' },
+      lower: { img: 'images/tippy/tippy-sideeye.jpeg',   caption: '🕸️ Tangled up back here, huh?' },
+    },
+    christmas: {
+      first: { img: 'images/tippy2/tippy2-sweaters.jpeg', caption: '🎄 Straight to the top of the nice list!' },
+      last:  { img: 'images/tippy/tippy-cone.jpeg',       caption: '🪨 Naughty list. Enjoy the coal.' },
+      upper: { img: 'images/tippy/tippy-blanket.jpeg',    caption: '🎁 Something good is coming…' },
+      lower: { img: 'images/tippy2/tippy2-naptime.jpeg',  caption: '❄️ Cold out here in last place.' },
+    },
+    summer: {
+      first: { img: 'images/tippy2/tippy2-zoomies.jpeg',  caption: '🌴 Summer Break MVP!' },
+      last:  { img: 'images/tippy/tippy-cone.jpeg',       caption: '🍔 No fries for you.' },
+      upper: { img: 'images/tippy2/tippy2-sunspot.jpeg',  caption: '🍹 Cruising. Order another round.' },
+      lower: { img: 'images/tippy/tippy-yawn.jpeg',       caption: '🌮 Taco \'bout a rough round.' },
+    },
+    july4: {
+      first: { img: 'images/tippy/tippy-happy.jpeg',   caption: '🎆 Grand finale performance!' },
+      last:  { img: 'images/tippy/tippy-cone.jpeg',    caption: '🧨 All fizzle, no bang.' },
+      upper: { img: 'images/tippy/tippy-standup.jpeg', caption: '🇺🇸 Tippy salutes your climb!' },
+      lower: { img: 'images/tippy/tippy-yawn.jpeg',    caption: '🥱 Dud firework of a round.' },
+    },
+  };
+  const seasonId  = activeSeasonId();
+  const seasonSet = (seasonId && SEASON_ROUND_END[seasonId]) || {};
+  const pick = seasonSet[bucket] || STANDARD_ROUND_END[bucket];
+  const tippyImg     = pick.img;
+  const tippyCaption = pick.caption;
   document.getElementById('round-end-tippy-img').src     = tippyImg;
   document.getElementById('round-end-tippy-caption').textContent = tippyCaption;
 
@@ -358,6 +463,9 @@ export function renderBoard(data, localState) {
     ind.classList.remove('my-turn');
   }
 
+  // Seasonal polaroid taped to the table (no-op outside a photo season)
+  updateSeasonPolaroid(data);
+
   // Turn bar (avatars in turn order + scores)
   renderTurnBar(data, myId);
 
@@ -393,12 +501,18 @@ function renderTurnBar(data, myId) {
   bar.innerHTML = order.map(pid => {
     const p = data.players[pid];
     if (!p) return '';
-    const isMe     = pid === myId;
-    const isActive = pid === data.currentTurn;
-    const isNext   = pid === nextPid && !isActive;
-    const name     = isMe ? 'You' : escapeHtml(p.name || 'Player');
-    return `<div class="tb-player${isActive ? ' tb-active' : ''}${isNext ? ' tb-next' : ''}${isMe ? ' tb-me' : ''}" title="${name}">
-      <div class="tb-avatar">${p.icon || '🎮'}${isNext ? '<span class="tb-next-tag">next</span>' : ''}</div>
+    const isMe      = pid === myId;
+    const isActive  = pid === data.currentTurn;
+    const isNext    = pid === nextPid && !isActive;
+    const isOffline = p.online === false;
+    const isSkipped = p.skipNext === true;
+    const name      = isMe ? 'You' : escapeHtml(p.name || 'Player');
+    const title     = name + (isOffline ? ' — disconnected' : '') + (isSkipped ? ' — skipping next turn' : '');
+    let tag = '';
+    if (isSkipped)     tag = '<span class="tb-skip-tag">⊘</span>';
+    else if (isNext)   tag = '<span class="tb-next-tag">next</span>';
+    return `<div class="tb-player${isActive ? ' tb-active' : ''}${isNext ? ' tb-next' : ''}${isMe ? ' tb-me' : ''}${isOffline ? ' tb-offline' : ''}" title="${title}">
+      <div class="tb-avatar">${p.icon || '🎮'}${tag}</div>
     </div>`;
   }).join('');
 }
@@ -420,13 +534,24 @@ function renderOpponents(data, myId) {
     const p       = data.players[pid];
     const panel   = document.createElement('div');
     const isTheirTurn = data.currentTurn === pid;
-    panel.className = 'opponent-panel' + (isTheirTurn ? ' active-turn' : '');
+    const isOffline   = p.online === false;
+    panel.className = 'opponent-panel' + (isTheirTurn ? ' active-turn' : '') + (isOffline ? ' opp-offline' : '');
 
     const phaseNum = Math.min(p.phase || 1, 10);
     const phaseObj = PHASES[phaseNum - 1];
+    // A dropped player can be invited straight back — the button copies the
+    // room's invite link so it can be texted over.
+    const offlineRow = isOffline
+      ? `<div class="opp-offline-row">
+           <span class="opp-offline-tag">🔌 disconnected</span>
+           <button type="button" class="opp-invite-btn" onclick="invitePlayerBack('${pid}')">Invite back</button>
+         </div>`
+      : '';
+    const skipTag = p.skipNext ? ' <span class="opp-skip-tag" title="Skipping their next turn">⊘ skipped</span>' : '';
     panel.innerHTML = `
-      <div class="opp-name">${p.icon || '🎮'} ${p.name} ${isTheirTurn ? '▶' : ''}</div>
+      <div class="opp-name">${p.icon || '🎮'} ${p.name} ${isTheirTurn ? '▶' : ''}${skipTag}</div>
       <div class="opp-info">Phase ${phaseNum} · ${p.score || 0} pts ${p.phaseDone ? '✓' : ''}</div>
+      ${offlineRow}
       <div class="opp-phase-visual phase-visual">${renderPhaseVisual(phaseObj)}</div>
       <div class="opp-cards"></div>
     `;
@@ -589,3 +714,93 @@ export function renderHand(localState) {
 
 // ── Initialize: show lobby after all variables are declared ──
 showScreen('lobby');
+
+// ═══════════════════════════════════════════
+//  BIRTHDAY TAKEOVER
+//  Birthday seasons (see SEASONS in settings.js) name a guest of honour. When
+//  a player with that name sits down, round 1 opens with a full-screen
+//  celebration — once per page load, dismissed by a tap or after 8 seconds.
+// ═══════════════════════════════════════════
+const BIRTHDAY_LOOK = {
+  dan: {
+    photo: 'images/dan/dan-couch.jpeg',
+    lines: [
+      'Have a DANTASTIC one 🎂',
+      'Who run the world? You do 👑🐝',
+      'Reed \'em and weep — it\'s your day 😎',
+      'Dan-gerously in love with this birthday 💜',
+    ],
+  },
+  julia: {
+    photo: 'images/tippy2/tippy2-daisy.jpeg',
+    lines: ['Tippy picked you a flower 🌼', 'Happy birthday, Julia! 💛'],
+  },
+  meg: {
+    photo: 'images/tippy2/tippy2-sweaters.jpeg',
+    lines: ['The whole fan club is here 🧶', 'Happy birthday, Meg! 🍁'],
+  },
+};
+
+let _birthdayShown = false;
+let _birthdayTimer = null;
+
+/**
+ * Show the birthday takeover if a birthday season is active, `playerName` is
+ * the guest of honour, and this is the first round. Safe to call every render.
+ */
+export function maybeBirthdayTakeover(playerName, handNum) {
+  if (_birthdayShown) return;
+  if ((handNum || 1) !== 1) return;
+  let isBirthdayPlayer = false;
+  try { isBirthdayPlayer = !!(window.isSeasonBirthdayName && window.isSeasonBirthdayName(playerName)); } catch (e) {}
+  if (!isBirthdayPlayer) return;
+  _birthdayShown = true;
+  showBirthdayTakeover();
+}
+
+function showBirthdayTakeover() {
+  const overlay = document.getElementById('birthday-overlay');
+  if (!overlay) return;
+  const seasonId = activeSeasonId();
+  const person   = (window.getSeasonPerson && window.getSeasonPerson()) || { name: 'You' };
+  const look     = BIRTHDAY_LOOK[seasonId] || { photo: 'images/tippy/tippy-happy.jpeg', lines: ['🎂 Have a great one!'] };
+
+  const titleEl = document.getElementById('birthday-title');
+  const subEl   = document.getElementById('birthday-sub');
+  const photoEl = document.getElementById('birthday-photo');
+  if (titleEl) titleEl.textContent = `HAPPY BIRTHDAY, ${String(person.name || '').toUpperCase()}!`;
+  if (subEl)   subEl.textContent   = look.lines[Math.floor(Math.random() * look.lines.length)];
+  if (photoEl) { photoEl.src = look.photo; photoEl.alt = person.name || 'Birthday'; }
+
+  // Emoji shower behind the card (skipped when animations are reduced)
+  const fx = document.getElementById('birthday-fx');
+  if (fx && !document.body.classList.contains('opt-noanimations')) {
+    fx.innerHTML = '';
+    const chars = ['🎂','🎈','🎉','👑','✨','🎁','🐝'];
+    for (let i = 0; i < 34; i++) {
+      const el = document.createElement('span');
+      el.className = 'bd-emoji';
+      el.textContent = chars[Math.floor(Math.random() * chars.length)];
+      el.style.left = (Math.random() * 98) + '%';
+      el.style.fontSize = Math.round(18 + Math.random() * 22) + 'px';
+      el.style.animationDelay = (Math.random() * 2.5).toFixed(2) + 's';
+      el.style.animationDuration = (3.2 + Math.random() * 2.6).toFixed(2) + 's';
+      fx.appendChild(el);
+    }
+  }
+
+  overlay.classList.add('show');
+  if (_birthdayTimer) clearTimeout(_birthdayTimer);
+  _birthdayTimer = setTimeout(() => window.dismissBirthdayTakeover(), 8000);
+}
+
+window.dismissBirthdayTakeover = function() {
+  const overlay = document.getElementById('birthday-overlay');
+  if (overlay) overlay.classList.remove('show');
+  if (_birthdayTimer) { clearTimeout(_birthdayTimer); _birthdayTimer = null; }
+  const fx = document.getElementById('birthday-fx');
+  if (fx) fx.innerHTML = '';
+};
+
+// Solo mode is a non-module script path, so expose it on window too.
+window.maybeBirthdayTakeover = maybeBirthdayTakeover;

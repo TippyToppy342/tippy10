@@ -166,6 +166,10 @@ window.startSoloGame = function(humanName, humanIcon, aiConfig, opts = {}) {
 
   showScreen('game');
   renderBoard(gameData, localState);
+  // Birthday seasons: solo games get the round-1 takeover too.
+  if (typeof window.maybeBirthdayTakeover === 'function') {
+    window.maybeBirthdayTakeover(localState.playerName, 1);
+  }
   soloSave();
 };
 

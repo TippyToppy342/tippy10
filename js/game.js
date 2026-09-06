@@ -3,10 +3,10 @@
 // ═══════════════════════════════════════════
 
 import { db, authReady } from './firebase-config.js';
-import { ref, set, get, update, remove, onValue, push } from
+import { ref, set, get, update, remove, onValue, push, onDisconnect } from
   'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 import { buildDeck, shuffle, cardPoints, validatePhase, canHit, firebaseToArray, PHASES, sortGroupForDisplay } from './cards.js';
-import { renderBoard, renderHand, showMessage, showScreen, showTippyPopup, showRoundEndScreen, playPickupAnimation } from './ui.js';
+import { renderBoard, renderHand, showMessage, showScreen, showTippyPopup, showRoundEndScreen, playPickupAnimation, maybeBirthdayTakeover } from './ui.js';
 
 // ── Local state ──
 export let localState = {
@@ -63,36 +63,181 @@ const GOOUT_MOMENTS = [
   { img: 'images/tippy2/tippy2-sweaters.jpeg',text: '🧶 went out! The fan club goes wild!' },
   { img: 'images/tippy2/tippy2-brewery.jpeg', text: '🍻 went out! Drinks are on Tippy!' },
 ];
-// ── Seasonal (4th of July) popup variants — used when body.season-july4 is on.
-//    Reuse existing Tippy photos with festive captions (no new images needed). ──
-const JULY4_PHASE_MOMENTS = [
-  { img: 'images/tippy/tippy-happy.jpeg',     text: '🎆 Phase down! Tippy lights the fireworks!' },
-  { img: 'images/tippy/tippy-standup.jpeg',   text: '🇺🇸 Star-spangled play! Tippy salutes!' },
-  { img: 'images/tippy/tippy-lick.jpeg',      text: '🌭 Hot dog! Tippy loves that one!' },
-  { img: 'images/tippy/tippy-park.jpeg',      text: '🎇 BOOM! Tippy says that was explosive!' },
-  { img: 'images/tippy/tippy-carseat.jpeg',   text: '🎉 Red, white, and WOOF!' },
-  { img: 'images/tippy/tippy-window.jpeg',    text: '🔭 Tippy spots a firework-worthy move!' },
-];
-const JULY4_SKIP_MOMENTS = [
-  { img: 'images/tippy/tippy-cone.jpeg',      text: '⊘ Skipped! No sparklers for you.' },
-  { img: 'images/tippy/tippy-yawn.jpeg',      text: '🥱 Skip! You fizzled out like a dud firework.' },
-  { img: 'images/tippy/tippy-sideeye.jpeg',   text: '😑 Skipped. Tippy waves a tiny flag in pity.' },
-  { img: 'images/tippy2/tippy2-squish.jpeg',  text: '🎆 Skipped! That one was all fizzle, no bang.' },
-];
-const JULY4_GOOUT_MOMENTS = [
-  { img: 'images/tippy/tippy-happy.jpeg',     text: '🎆 went out! Grand finale!' },
-  { img: 'images/tippy/tippy-park.jpeg',      text: '🇺🇸 went out! Tippy salutes a champion!' },
-  { img: 'images/tippy/tippy-carseat.jpeg',   text: '🎇 went out! Fireworks for you!' },
-  { img: 'images/tippy/tippy-lick.jpeg',      text: '🌭 went out! Cookout MVP!' },
-  { img: 'images/tippy2/tippy2-zoomies.jpeg', text: '💥 went out! Independence-day zoomies!' },
-];
-function isSeasonJuly4() {
-  return typeof document !== 'undefined' && document.body.classList.contains('season-july4');
+
+// ── Seasonal popup variants ──────────────────
+// Keyed by the season id declared in settings.js (SEASONS). A season may
+// override any subset of pools — anything it leaves out falls back to the
+// standard pool above. Adding a season = one row in settings.js, one CSS
+// block, and (optionally) an entry here. No other code changes.
+const SEASON_MOMENTS = {
+  july4: {
+    phase: [
+      { img: 'images/tippy/tippy-happy.jpeg',     text: '🎆 Phase down! Tippy lights the fireworks!' },
+      { img: 'images/tippy/tippy-standup.jpeg',   text: '🇺🇸 Star-spangled play! Tippy salutes!' },
+      { img: 'images/tippy/tippy-lick.jpeg',      text: '🌭 Hot dog! Tippy loves that one!' },
+      { img: 'images/tippy/tippy-park.jpeg',      text: '🎇 BOOM! Tippy says that was explosive!' },
+      { img: 'images/tippy/tippy-carseat.jpeg',   text: '🎉 Red, white, and WOOF!' },
+      { img: 'images/tippy/tippy-window.jpeg',    text: '🔭 Tippy spots a firework-worthy move!' },
+    ],
+    skip: [
+      { img: 'images/tippy/tippy-cone.jpeg',      text: '⊘ Skipped! No sparklers for you.' },
+      { img: 'images/tippy/tippy-yawn.jpeg',      text: '🥱 Skip! You fizzled out like a dud firework.' },
+      { img: 'images/tippy/tippy-sideeye.jpeg',   text: '😑 Skipped. Tippy waves a tiny flag in pity.' },
+      { img: 'images/tippy2/tippy2-squish.jpeg',  text: '🎆 Skipped! That one was all fizzle, no bang.' },
+    ],
+    goout: [
+      { img: 'images/tippy/tippy-happy.jpeg',     text: '🎆 went out! Grand finale!' },
+      { img: 'images/tippy/tippy-park.jpeg',      text: '🇺🇸 went out! Tippy salutes a champion!' },
+      { img: 'images/tippy/tippy-carseat.jpeg',   text: '🎇 went out! Fireworks for you!' },
+      { img: 'images/tippy/tippy-lick.jpeg',      text: '🌭 went out! Cookout MVP!' },
+      { img: 'images/tippy2/tippy2-zoomies.jpeg', text: '💥 went out! Independence-day zoomies!' },
+    ],
+  },
+
+  // ── Dan Reed's birthday (Sept 6) — Dan photos + name puns + Beyoncé ──
+  //    Only whole photos here: they show Tippy, and Tippy is the point.
+  //    Never crop these down to a face.
+  dan: {
+    phase: [
+      { img: 'images/dan/dan-couch.jpeg',   text: '🎂 DANTASTIC phase down!' },
+      { img: 'images/dan/dan-balcony.jpeg', text: '🍺 Dan and Tippy approve of that play.' },
+      { img: 'images/dan/dan-wedding.jpeg', text: '💍 Dan pronounces that phase lawfully laid down.' },
+      { img: 'images/dan/dan-couch.jpeg',   text: '👑 Who run the world? Dan does.' },
+      { img: 'images/dan/dan-balcony.jpeg', text: "😎 Reed 'em and weep — that phase is clean." },
+      { img: 'images/dan/dan-wedding.jpeg', text: "🐝 Bey-DAN-cé says that was FLAWLESS." },
+      { img: 'images/dan/dan-couch.jpeg',   text: '📰 Reed all about it — phase complete!' },
+      { img: 'images/dan/dan-balcony.jpeg', text: '🎈 Dan-imal! The birthday boy approves.' },
+      { img: 'images/dan/dan-wedding.jpeg', text: "🎉 Okay ladies, now let's get in phase-mation." },
+      { img: 'images/dan/dan-couch.jpeg',   text: '✨ Dan-tabulous. Absolutely Dan-tabulous.' },
+    ],
+    skip: [
+      { img: 'images/dan/dan-balcony.jpeg', text: '⊘ Skipped! To the left, to the left.' },
+      { img: 'images/dan/dan-wedding.jpeg', text: "🚫 Dan objects. You're sitting this one out." },
+      { img: 'images/dan/dan-couch.jpeg',   text: '😑 Thought you were irreplaceable? Skipped.' },
+      { img: 'images/dan/dan-couch.jpeg',   text: '🥱 Skipped. Dan and Tippy are unbothered.' },
+      { img: 'images/dan/dan-balcony.jpeg', text: '🍺 Dan-ied! Go get yourself a drink.' },
+      { img: 'images/dan/dan-wedding.jpeg', text: "💍 Should have put a ring on that turn — it's gone." },
+    ],
+    goout: [
+      { img: 'images/dan/dan-couch.jpeg',   text: '🎂 went out! DANTASTIC job!' },
+      { img: 'images/dan/dan-wedding.jpeg', text: '💍 went out! Put a ring on it!' },
+      { img: 'images/dan/dan-balcony.jpeg', text: '👑 went out! Dan the Man does it again!' },
+      { img: 'images/dan/dan-couch.jpeg',   text: '📰 went out! Reed all about it!' },
+      { img: 'images/dan/dan-balcony.jpeg', text: '🐝 went out! Flawless. Formation. Finished.' },
+      { img: 'images/dan/dan-wedding.jpeg', text: '🎉 went out! Dan-gerously good.' },
+    ],
+  },
+
+  // ── Summer Break — tacos, sushi, In-N-Out, MTV beach-house energy ──
+  summer: {
+    phase: [
+      { img: 'images/tippy2/tippy2-sunspot.jpeg',   text: '🌮 Taco \'bout a phase!' },
+      { img: 'images/tippy2/tippy2-lifejacket.jpeg',text: '🍣 Raw talent. Nigiri-level clean.' },
+      { img: 'images/tippy/tippy-carseat.jpeg',      text: '🍔 Animal Style! Double-double phase down.' },
+      { img: 'images/tippy2/tippy2-zoomies.jpeg',    text: '📺 MTV Summer Break says TURN IT UP!' },
+      { img: 'images/tippy2/tippy2-brewery.jpeg',    text: '🍹 Another round of chips and guac, please.' },
+      { img: 'images/tippy/tippy-burrito.jpeg',      text: '🌯 Burrito-sized play. Fully wrapped.' },
+      { img: 'images/tippy2/tippy2-daisy.jpeg',      text: '🌴 Certified summer heater.' },
+      { img: 'images/tippy/tippy-park.jpeg',         text: '🍟 Animal fries all around!' },
+    ],
+    skip: [
+      { img: 'images/tippy/tippy-cone.jpeg',         text: '⊘ Skipped! Straight to the kids\' table.' },
+      { img: 'images/tippy/tippy-yawn.jpeg',         text: '🥱 Skipped. Go sit in the sun and think about it.' },
+      { img: 'images/tippy2/tippy2-squish.jpeg',     text: '🍔 Skipped — no fries for you.' },
+      { img: 'images/tippy/tippy-sideeye.jpeg',      text: '🍣 Skipped. That play was expired sashimi.' },
+    ],
+    goout: [
+      { img: 'images/tippy2/tippy2-zoomies.jpeg',    text: '🌴 went out! Summer Break MVP!' },
+      { img: 'images/tippy2/tippy2-brewery.jpeg',    text: '🍹 went out! First round is on them!' },
+      { img: 'images/tippy/tippy-carseat.jpeg',      text: '🍔 went out! Double-double champion!' },
+      { img: 'images/tippy2/tippy2-lifejacket.jpeg', text: '🌊 went out! Rode that wave all the way in.' },
+    ],
+  },
+
+  halloween: {
+    phase: [
+      { img: 'images/tippy2/tippy2-pumpkin.jpeg',  text: '🎃 Spooky good phase!' },
+      { img: 'images/tippy/tippy-peeking.jpeg',    text: '👻 BOO! Didn\'t see that phase coming.' },
+      { img: 'images/tippy2/tippy2-staredown.jpeg',text: '🦇 Frighteningly clean play.' },
+      { img: 'images/tippy/tippy-closeup.jpeg',    text: '🕸️ Tippy caught that one in his web.' },
+      { img: 'images/tippy2/tippy2-slipper.jpeg',  text: '🍬 Trick or treat — that\'s a treat.' },
+    ],
+    skip: [
+      { img: 'images/tippy/tippy-cone.jpeg',       text: '⊘ Skipped! That\'s the real horror.' },
+      { img: 'images/tippy/tippy-sideeye.jpeg',    text: '👻 Skipped. Ghosted, honestly.' },
+      { img: 'images/tippy2/tippy2-squish.jpeg',   text: '🎃 Skipped! Your turn got smashed.' },
+    ],
+    goout: [
+      { img: 'images/tippy2/tippy2-pumpkin.jpeg',  text: '🎃 went out! King of the pumpkin patch!' },
+      { img: 'images/tippy2/tippy2-zoomies.jpeg',  text: '👻 went out! Vanished into the night!' },
+      { img: 'images/tippy/tippy-happy.jpeg',      text: '🍬 went out! Full candy bucket!' },
+    ],
+  },
+
+  christmas: {
+    phase: [
+      { img: 'images/tippy2/tippy2-sweaters.jpeg', text: '🎄 Phase down! Straight off the nice list.' },
+      { img: 'images/tippy/tippy-blanket.jpeg',    text: '🎁 Unwrapped a perfect phase!' },
+      { img: 'images/tippy2/tippy2-blanketnap.jpeg',text: '❄️ Cool, calm, and completely phased.' },
+      { img: 'images/tippy/tippy-pinkblanket.jpeg',text: '🔔 Ring the bells — that one counted!' },
+      { img: 'images/tippy2/tippy2-naptime.jpeg',  text: '⭐ Tippy put a star on that play.' },
+    ],
+    skip: [
+      { img: 'images/tippy/tippy-cone.jpeg',       text: '⊘ Skipped! Straight to the naughty list.' },
+      { img: 'images/tippy/tippy-yawn.jpeg',       text: '🥱 Skipped. Enjoy the coal.' },
+      { img: 'images/tippy2/tippy2-squish.jpeg',   text: '❄️ Skipped. Cold. Very cold.' },
+    ],
+    goout: [
+      { img: 'images/tippy2/tippy2-sweaters.jpeg', text: '🎄 went out! Christmas came early!' },
+      { img: 'images/tippy/tippy-happy.jpeg',      text: '🎁 went out! Best gift of the night!' },
+      { img: 'images/tippy2/tippy2-zoomies.jpeg',  text: '🛷 went out! Sleighed it.' },
+    ],
+  },
+
+  julia: {
+    phase: [
+      { img: 'images/tippy2/tippy2-daisy.jpeg',    text: '💛 Phase down — Julia\'s birthday magic!' },
+      { img: 'images/tippy/tippy-happy.jpeg',      text: '🎂 That one\'s worthy of a birthday candle!' },
+      { img: 'images/tippy2/tippy2-selfie.jpeg',   text: '🎈 Somebody photograph that play!' },
+    ],
+    goout: [
+      { img: 'images/tippy/tippy-happy.jpeg',      text: '🎂 went out! Birthday-level performance!' },
+      { img: 'images/tippy2/tippy2-daisy.jpeg',    text: '💛 went out! Julia would be proud!' },
+    ],
+  },
+
+  meg: {
+    phase: [
+      { img: 'images/tippy2/tippy2-sweaters.jpeg', text: '🍁 Phase down — Meg\'s birthday energy!' },
+      { img: 'images/tippy/tippy-happy.jpeg',      text: '🎂 Cake-worthy play!' },
+      { img: 'images/tippy2/tippy2-parkpets.jpeg', text: '🎈 That deserves a birthday round of applause!' },
+    ],
+    goout: [
+      { img: 'images/tippy/tippy-happy.jpeg',      text: '🎂 went out! Birthday champion!' },
+      { img: 'images/tippy2/tippy2-sweaters.jpeg', text: '🍁 went out! Meg approves!' },
+    ],
+  },
+};
+
+const BASE_MOMENTS = { phase: PHASE_DOWN_MOMENTS, skip: SKIP_MOMENTS, goout: GOOUT_MOMENTS };
+
+/** The season painted on <body> right now, or null. Defined in settings.js. */
+function activeSeasonId() {
+  try { return window.getActiveSeasonId ? window.getActiveSeasonId() : null; } catch (e) { return null; }
 }
+/** Seasonal pool if the active season defines one, otherwise the standard pool. */
+function momentPool(kind) {
+  const id = activeSeasonId();
+  const seasonal = id && SEASON_MOMENTS[id] && SEASON_MOMENTS[id][kind];
+  return (seasonal && seasonal.length) ? seasonal : BASE_MOMENTS[kind];
+}
+
 let _phaseMomentIdx = 0, _skipMomentIdx = 0, _goOutMomentIdx = 0;
-function nextPhaseMoment()  { const p = isSeasonJuly4() ? JULY4_PHASE_MOMENTS : PHASE_DOWN_MOMENTS; return p[_phaseMomentIdx++ % p.length]; }
-function nextSkipMoment()   { const p = isSeasonJuly4() ? JULY4_SKIP_MOMENTS  : SKIP_MOMENTS;       return p[_skipMomentIdx++  % p.length]; }
-function nextGoOutMoment()  { const p = isSeasonJuly4() ? JULY4_GOOUT_MOMENTS : GOOUT_MOMENTS;      return p[_goOutMomentIdx++ % p.length]; }
+function nextPhaseMoment()  { const p = momentPool('phase'); return p[_phaseMomentIdx++ % p.length]; }
+function nextSkipMoment()   { const p = momentPool('skip');  return p[_skipMomentIdx++  % p.length]; }
+function nextGoOutMoment()  { const p = momentPool('goout'); return p[_goOutMomentIdx++ % p.length]; }
+/** Fallback image for a popup broadcast that didn't specify one. */
+function nextPopupImg()     { const p = momentPool('phase'); return p[Math.floor(Math.random() * p.length)].img; }
 
 async function broadcastPopup(text, img) {
   if (!localState.roomCode) return;
@@ -313,10 +458,11 @@ async function checkSavedSession() {
   // Wait for anonymous sign-in before hitting the DB
   await authReady;
 
-  // Verify the room + player still exist in Firebase
+  // Verify the room is real and the seat still exists in Firebase
   try {
-    const snap = await get(ref(db, `rooms/${session.roomCode}/players/${session.playerId}`));
-    if (!snap.exists()) { clearSession(); return; }
+    const roomSnap = await get(ref(db, `rooms/${session.roomCode}`));
+    if (!roomSnap.exists() || !roomSnap.val()?.status) { clearSession(); return; }
+    if (!roomSnap.val()?.players?.[session.playerId]) { clearSession(); return; }
   } catch(e) { return; }
 
   // Show the rejoin prompt in the lobby
@@ -338,7 +484,7 @@ window.rejoinGame = async function() {
   // Verify room still exists
   let snap;
   try { snap = await get(ref(db, `rooms/${session.roomCode}`)); } catch(e) { setLobbyError('Connection error — try again'); return; }
-  if (!snap.exists()) {
+  if (!snap.exists() || !snap.val()?.status) {
     clearSession();
     document.getElementById('rejoin-section').style.display = 'none';
     setLobbyError('That game no longer exists — start a new one');
@@ -395,14 +541,17 @@ window.createRoom = async function() {
 
   const roomRef = ref(db, `rooms/${room}`);
   const snap = await get(roomRef);
-  if (snap.exists()) { setLobbyError('Room already exists — pick another code'); return; }
+  // A record with no status is a leftover stub, not a live room — reuse the code.
+  if (snap.exists() && snap.val()?.status) {
+    setLobbyError('Room already exists — pick another code'); return;
+  }
 
   const roomData = {
     host: localState.playerId,
     status: 'waiting',
     skipRule: 'next',                  // host can toggle in the waiting room
     players: {
-      [localState.playerId]: { name, icon, phase: 1, score: 0, handCount: 0, phaseDone: false }
+      [localState.playerId]: { name, icon, phase: 1, score: 0, handCount: 0, phaseDone: false, online: true }
     },
     playerOrder: [localState.playerId],
   };
@@ -428,9 +577,9 @@ window.joinRoom = async function() {
   const snap = await get(roomRef);
   if (!snap.exists()) { setLobbyError('Room not found'); return; }
   const data = snap.val();
-  if (data.status !== 'waiting') { setLobbyError('Game already started'); return; }
+  if (!data.status) { setLobbyError('Room not found'); return; }   // leftover stub
 
-  // Password check
+  // Password check (applies to fresh joins and rejoins alike)
   if (data.password) {
     if (!password) { setLobbyError('This room requires a password 🔒'); return; }
     if (password !== data.password) { setLobbyError('Wrong password — try again 🔒'); return; }
@@ -455,6 +604,19 @@ window.joinRoom = async function() {
   }
   const isNewPlayer = !existingPlayers[pid];
 
+  // ── Game already in progress ──
+  // Anyone who still holds a seat here can walk back in: a cleared browser, a
+  // different device, a dismissed rejoin prompt, or just hitting Join instead
+  // of Rejoin. Only genuinely new players are turned away.
+  if (data.status !== 'waiting') {
+    if (isNewPlayer) {
+      setLobbyError('Game already started — to get back in, use the exact name you were playing as');
+      return;
+    }
+    await reclaimSeat(room, pid, data, { name, icon });
+    return;
+  }
+
   // Room-full check only applies to genuinely new players
   if (isNewPlayer && Object.keys(existingPlayers).length >= 6) {
     setLobbyError('Room is full (max 6)'); return;
@@ -466,7 +628,7 @@ window.joinRoom = async function() {
   localState.isHost     = false;
 
   const updates = {};
-  updates[`rooms/${room}/players/${pid}`] = { name, icon, phase: 1, score: 0, handCount: 0, phaseDone: false };
+  updates[`rooms/${room}/players/${pid}`] = { name, icon, phase: 1, score: 0, handCount: 0, phaseDone: false, online: true };
   if (isNewPlayer) {
     updates[`rooms/${room}/playerOrder`] = [...(data.playerOrder || []), pid];
   }
@@ -474,6 +636,97 @@ window.joinRoom = async function() {
 
   saveSession();
   enterWaiting();
+};
+
+// ─────────────────────────────────────────────
+//  REJOIN AN IN-PROGRESS GAME
+//  Restores an existing seat without touching its hand, score or phase, then
+//  drops the player straight back onto whatever screen the room is on.
+// ─────────────────────────────────────────────
+async function reclaimSeat(room, pid, data, profile) {
+  const seat = data.players?.[pid] || {};
+  localState.playerId      = pid;
+  localState.playerName    = seat.name || profile.name;
+  localState.playerIcon    = seat.icon || profile.icon || '🦁';
+  localState.roomCode      = room;
+  localState.isHost        = (data.host === pid);
+  localState.hand          = firebaseToArray(seat.hand || []);
+  localState.selectedCards = [];
+  localState.lastPopupTs   = 0;
+  localState.lastDrawTs    = 0;
+
+  saveSession();
+  document.getElementById('rejoin-section').style.display = 'none';
+  setLobbyError('');
+  subscribeRoom();               // handleRoomUpdate routes to the right screen
+  postSystemChatMessage(`🔌 ${localState.playerName} is back in the game`);
+}
+
+// ── Presence ──
+// Mark this player online for as long as the tab is connected; Firebase flips
+// the flag to false server-side the moment the connection drops, so everyone
+// else can see who fell off (and offer to invite them back).
+let _presenceDisconnect = null;
+function setupPresence() {
+  if (!localState.roomCode || !localState.playerId) return;
+  try {
+    const onlineRef = ref(db, `rooms/${localState.roomCode}/players/${localState.playerId}/online`);
+    _presenceDisconnect = onDisconnect(onlineRef);
+    _presenceDisconnect.set(false);
+    set(onlineRef, true);
+  } catch (e) { /* presence is best-effort — never block play on it */ }
+}
+
+/** Drop the queued disconnect write — call before leaving a room on purpose. */
+async function clearPresence() {
+  if (!_presenceDisconnect) return;
+  try { await _presenceDisconnect.cancel(); } catch (e) {}
+  _presenceDisconnect = null;
+}
+
+// ── Invite link ──
+// A plain URL with ?room=CODE. Opening it prefills the room code in the
+// lobby; entering the same name as before walks the player back into their
+// seat (see joinRoom → reclaimSeat).
+function buildInviteLink(code) {
+  const base = window.location.origin + window.location.pathname;
+  return `${base}?room=${encodeURIComponent(code)}`;
+}
+
+function copyTextFallback(text) {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  } catch (e) { return false; }
+}
+
+window.copyInviteLink = async function() {
+  const code = localState.roomCode;
+  if (!code) return;
+  const link = buildInviteLink(code);
+  let ok = false;
+  try {
+    await navigator.clipboard.writeText(link);
+    ok = true;
+  } catch (e) {
+    ok = copyTextFallback(link);
+  }
+  showMessage(ok ? '🔗 Invite link copied — send it to them!' : link, ok ? 2600 : 8000);
+  return ok;
+};
+
+/** Invite one specific player back — copies the link and pings the room chat. */
+window.invitePlayerBack = async function(pid) {
+  const name = localState.gameData?.players?.[pid]?.name || 'Player';
+  const ok = await window.copyInviteLink();
+  if (ok) postSystemChatMessage(`📣 Come back, ${name}! An invite link is on its way.`);
 };
 
 function enterWaiting() {
@@ -507,6 +760,7 @@ function subscribeRoom() {
   // Start chat listener + show the chat widget for this room
   subscribeChat();
   showChatWidget();
+  setupPresence();
 }
 
 function handleRoomUpdate(data) {
@@ -538,6 +792,9 @@ function handleRoomUpdate(data) {
     if (!document.getElementById('screen-game').classList.contains('active')) {
       showScreen('game');
     }
+    // Birthday seasons: if the guest of honour is at the table, round 1 opens
+    // with a full-screen "Happy Birthday" (once per session — see ui.js).
+    maybeBirthdayTakeover(localState.playerName, data.handNum || 1);
     // Sync hand from Firebase only when the set of cards actually changes,
     // so local sort/drag order is preserved when other players take actions.
     const myData = data.players?.[localState.playerId];
@@ -908,9 +1165,11 @@ window.discardSelected = async function() {
   }
 
   // Compute the next turn, honouring all skipNext flags (including the one
-  // we may have just set above on the chosen target).
+  // we may have just set above on the chosen target). `consumedSkips` lists
+  // the players whose skip was actually spent by THIS advance.
   const flagOverride = skippedPid ? { [skippedPid]: true } : {};
-  const nextPlayer = advanceTurnPidMP(order, data.players || {}, myIdx, flagOverride);
+  const { pid: nextPlayer, consumed: consumedSkips } =
+    advanceTurnPidMP(order, data.players || {}, myIdx, flagOverride);
 
   const newHand      = localState.hand.filter(c => c.id !== card.id);
   const discardPile  = [...firebaseToArray(data.discardPile || []), card];
@@ -924,9 +1183,19 @@ window.discardSelected = async function() {
     [`rooms/${localState.roomCode}/currentTurn`]:                               nextPlayer,
     [`rooms/${localState.roomCode}/turnPhase`]:                                 'draw',
   };
-  // Persist + consume skipNext flag for the chosen target
-  if (skippedPid) {
-    updates[`rooms/${localState.roomCode}/players/${skippedPid}/skipNext`] = false;
+  // Persist the skip.
+  //  • Target is NOT the next player (the "pick who to skip" case): store a
+  //    pending skipNext flag so their turn is skipped when the rotation
+  //    reaches them. Clearing it here — as this used to — is exactly why
+  //    picking anyone other than the next player did nothing.
+  //  • Target's turn WAS spent by this advance: clear the flag.
+  //  • Any other pending flag consumed on the way is cleared too, so a stale
+  //    flag can never skip the same player round after round.
+  if (skippedPid && !consumedSkips.includes(skippedPid)) {
+    updates[`rooms/${localState.roomCode}/players/${skippedPid}/skipNext`] = true;
+  }
+  for (const pid of consumedSkips) {
+    updates[`rooms/${localState.roomCode}/players/${pid}/skipNext`] = false;
   }
 
   if (newHand.length === 0) {
@@ -1112,6 +1381,32 @@ window.setHostSkipRule = async function(rule) {
 // Check for a saved session on page load and show rejoin prompt if valid
 checkSavedSession();
 
+// ── Invite links (?room=CODE) ──
+// Prefill the room code and explain what to do. Combined with reclaimSeat,
+// this is how someone who lost their browser session gets back into a game
+// that's already running: open the link, type the same name, hit Join.
+(function applyInviteLinkFromUrl() {
+  try {
+    const code = (new URLSearchParams(window.location.search).get('room') || '').trim().toUpperCase();
+    if (!code) return;
+    const roomInput = document.getElementById('input-room');
+    if (roomInput) roomInput.value = code;
+    const hint = document.getElementById('lobby-invite-hint');
+    if (hint) {
+      hint.innerHTML = `🔗 You've been invited to room <strong>${code}</strong> — enter your name (the same one as before, if you were already playing) and hit <strong>Join Room</strong>.`;
+      hint.style.display = '';
+    }
+    // Prefill the name from a saved session so a returning player just clicks.
+    const nameInput = document.getElementById('input-name');
+    if (nameInput && !nameInput.value) {
+      try {
+        const saved = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+        if (saved && saved.playerName) nameInput.value = saved.playerName;
+      } catch (e) {}
+    }
+  } catch (e) { /* non-critical */ }
+})();
+
 // ─────────────────────────────────────────────
 //  TOGGLE CARD SELECTION
 // ─────────────────────────────────────────────
@@ -1158,12 +1453,26 @@ const WIN_TIPPY_IMGS = [
   'images/tippy/tippy-lick.jpeg',
   'images/tippy/tippy-upsidedown.jpeg',
 ];
+// Seasons that take over the winner photo (everything else keeps Tippy).
+const SEASON_WIN_IMGS = {
+  dan: [
+    'images/dan/dan-couch.jpeg',
+    'images/dan/dan-balcony.jpeg',
+    'images/dan/dan-wedding.jpeg',
+  ],
+};
+function winImgPool() {
+  const id = activeSeasonId();
+  const pool = id && SEASON_WIN_IMGS[id];
+  return (pool && pool.length) ? pool : WIN_TIPPY_IMGS;
+}
 
 function showEndScreen(data) {
   showScreen('end');
 
-  // Pick a random hype Tippy photo
-  const img = WIN_TIPPY_IMGS[Math.floor(Math.random() * WIN_TIPPY_IMGS.length)];
+  // Pick a random hype photo (seasonal pool when one is active)
+  const pool = winImgPool();
+  const img = pool[Math.floor(Math.random() * pool.length)];
   document.getElementById('end-tippy-img').src = img;
 
   const players = Object.entries(data.players || {})
@@ -1201,10 +1510,19 @@ function launchConfetti() {
   const container = document.getElementById('confetti-container');
   if (!container) return;
   container.innerHTML = '';
-  const colors = document.body.classList.contains('season-july4')
-    ? ['#b22234','#ffffff','#3457b2','#ff5d6c','#5b8cff','#e8eef7']
-    : ['#ffd700','#ff6b6b','#4ecdc4','#45b7d1','#96e6a1','#ffd93d','#ff6fb7','#a29bfe','#fd79a8'];
-  const july4 = document.body.classList.contains('season-july4');
+  const SEASON_CONFETTI = {
+    july4:     ['#b22234','#ffffff','#3457b2','#ff5d6c','#5b8cff','#e8eef7'],
+    dan:       ['#ffd700','#f6c453','#ffffff','#b98cff','#7c4dff','#ffe9a8'],
+    halloween: ['#ff7518','#7b2ff7','#39ff14','#ffffff','#ffb74d','#4a148c'],
+    christmas: ['#c62828','#2e7d32','#ffffff','#ffd700','#81c784','#ef9a9a'],
+    summer:    ['#00b8d4','#ffca28','#ff7043','#26c6da','#f06292','#aeea00'],
+    julia:     ['#ffd54f','#fff59d','#ffb300','#ffffff','#ffd700','#ffe082'],
+    meg:       ['#e65100','#ff8a65','#ffcc80','#8d6e63','#ffffff','#c62828'],
+  };
+  const seasonId = activeSeasonId();
+  const colors = SEASON_CONFETTI[seasonId]
+    || ['#ffd700','#ff6b6b','#4ecdc4','#45b7d1','#96e6a1','#ffd93d','#ff6fb7','#a29bfe','#fd79a8'];
+  const july4 = seasonId === 'july4';
   const shapes = [2, 4, 50]; // border-radius values: square, slightly rounded, circle
   for (let i = 0; i < 150; i++) {
     const el  = document.createElement('div');
@@ -1232,6 +1550,16 @@ window.backToLobby = async function() {
   if (localState.isSolo) return window.endSoloGame?.();
   const roomCode = localState.roomCode;
   const isHost   = localState.isHost;
+
+  // Cancel the queued disconnect write first: if the host deletes the room
+  // below, a late replay of it would recreate the room as an empty stub.
+  await clearPresence();
+
+  // Mark this seat offline before dropping the listener, so the rest of the
+  // table sees them leave instead of showing a ghost as connected.
+  if (roomCode && localState.playerId) {
+    try { await update(ref(db), { [`rooms/${roomCode}/players/${localState.playerId}/online`]: false }); } catch (e) {}
+  }
 
   // Clear saved session — explicit leave means no rejoin needed
   clearSession();
@@ -1650,20 +1978,24 @@ window.sendChat = async function() {
 // Multiplayer turn advancement that respects per-player skipNext flags.
 // `flagOverride` lets the caller set a one-shot skip on a target the discard
 // just committed (since the Firebase write may not have propagated yet).
+// Returns { pid, consumed } — `consumed` is every player whose pending skip
+// was spent getting here, so the caller can clear exactly those flags.
 function advanceTurnPidMP(order, players, fromIdx, flagOverride = {}) {
   let idx = (fromIdx + 1) % order.length;
   let safety = order.length + 2;
+  const consumed = [];
   while (safety-- > 0) {
     const pid = order[idx];
     const p   = players[pid];
     const skipped = (flagOverride[pid] === true) || (p && p.skipNext === true);
     if (skipped) {
+      consumed.push(pid);
       idx = (idx + 1) % order.length;
       continue;
     }
-    return pid;
+    return { pid, consumed };
   }
-  return order[idx];
+  return { pid: order[idx], consumed };
 }
 
 // ─────────────────────────────────────────────

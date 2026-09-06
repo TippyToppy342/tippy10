@@ -19,7 +19,7 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;600;700;800&family=VT323&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=20260610" />
+  <link rel="stylesheet" href="css/style.css?v=20260906b" />
 </head>
 <body>
 
@@ -83,7 +83,7 @@
       <label class="settings-toggle">
         <input type="checkbox" id="opt-seasonal" onchange="applyOption('seasonal', this.checked)" />
         <span class="toggle-track"><span class="toggle-thumb"></span></span>
-        <span class="toggle-label">Seasonal Themes <span class="toggle-hint">holiday looks on standard theme (e.g. 4th of July)</span></span>
+        <span class="toggle-label">Seasonal Themes <span class="toggle-hint">holiday &amp; birthday looks on the standard theme — 4th of July, Summer Break, Halloween, Christmas, birthdays</span></span>
       </label>
     </div>
 
@@ -138,7 +138,7 @@
   <div class="season-fw season-fw-ambient" aria-hidden="true"></div>
   <div class="lobby-card">
 
-    <div class="season-banner" aria-hidden="true"><span>🎆 4th of July Edition 🎆</span></div>
+    <div class="season-banner" aria-hidden="true"><span>Seasonal Edition</span></div>
 
     <!-- Tippy avatar -->
     <div class="tippy-lobby-wrap">
@@ -183,9 +183,24 @@
         <span class="icon-option" data-icon="🐾" onclick="setPlayerIcon('🐾')">🐾</span>
         <span class="icon-option" data-icon="🐶" onclick="setPlayerIcon('🐶')">🐶</span>
         <span class="icon-option" data-icon="😑" onclick="setPlayerIcon('😑')">😑</span>
-        <span class="icon-option season-only" data-icon="🇺🇸" onclick="setPlayerIcon('🇺🇸')">🇺🇸</span>
-        <span class="icon-option season-only" data-icon="🎆" onclick="setPlayerIcon('🎆')">🎆</span>
-        <span class="icon-option season-only" data-icon="🎇" onclick="setPlayerIcon('🎇')">🎇</span>
+        <span class="icon-option season-only" data-season="july4" data-icon="🇺🇸" onclick="setPlayerIcon('🇺🇸')">🇺🇸</span>
+        <span class="icon-option season-only" data-season="july4" data-icon="🎆" onclick="setPlayerIcon('🎆')">🎆</span>
+        <span class="icon-option season-only" data-season="july4" data-icon="🎇" onclick="setPlayerIcon('🎇')">🎇</span>
+        <span class="icon-option season-only" data-season="dan julia meg" data-icon="🎂" onclick="setPlayerIcon('🎂')">🎂</span>
+        <span class="icon-option season-only" data-season="dan julia meg" data-icon="🎈" onclick="setPlayerIcon('🎈')">🎈</span>
+        <span class="icon-option season-only" data-season="dan" data-icon="👑" onclick="setPlayerIcon('👑')">👑</span>
+        <span class="icon-option season-only" data-season="dan" data-icon="🐝" onclick="setPlayerIcon('🐝')">🐝</span>
+        <span class="icon-option season-only" data-season="dan" data-icon="💍" onclick="setPlayerIcon('💍')">💍</span>
+        <span class="icon-option season-only" data-season="halloween" data-icon="🎃" onclick="setPlayerIcon('🎃')">🎃</span>
+        <span class="icon-option season-only" data-season="halloween" data-icon="👻" onclick="setPlayerIcon('👻')">👻</span>
+        <span class="icon-option season-only" data-season="halloween" data-icon="🦇" onclick="setPlayerIcon('🦇')">🦇</span>
+        <span class="icon-option season-only" data-season="christmas" data-icon="🎄" onclick="setPlayerIcon('🎄')">🎄</span>
+        <span class="icon-option season-only" data-season="christmas" data-icon="🎁" onclick="setPlayerIcon('🎁')">🎁</span>
+        <span class="icon-option season-only" data-season="christmas" data-icon="⛄" onclick="setPlayerIcon('⛄')">⛄</span>
+        <span class="icon-option season-only" data-season="summer" data-icon="🌴" onclick="setPlayerIcon('🌴')">🌴</span>
+        <span class="icon-option season-only" data-season="summer" data-icon="🌮" onclick="setPlayerIcon('🌮')">🌮</span>
+        <span class="icon-option season-only" data-season="summer" data-icon="🍔" onclick="setPlayerIcon('🍔')">🍔</span>
+        <span class="icon-option season-only" data-season="summer" data-icon="🍣" onclick="setPlayerIcon('🍣')">🍣</span>
       </div>
     </div>
 
@@ -195,6 +210,8 @@
     </div>
 
     <div class="divider"><span>Create or Join</span></div>
+
+    <p id="lobby-invite-hint" class="invite-hint" style="display:none"></p>
 
     <div class="field-row">
       <div class="field-group">
@@ -280,6 +297,7 @@
     <h2>Waiting for Players</h2>
     <p>Room Code: <strong id="display-room-code"></strong></p>
     <p class="hint">Share this code with friends — 2 to 6 players</p>
+    <button type="button" class="btn btn-sm invite-link-btn" onclick="copyInviteLink()">🔗 Copy invite link</button>
 
     <!-- Tippy photo gallery while waiting -->
     <div class="tippy-gallery">
@@ -310,7 +328,7 @@
 
   <!-- Top bar -->
   <div class="top-bar">
-    <div class="room-badge">Room: <span id="hud-room"></span></div>
+    <div class="room-badge room-badge-copy" onclick="copyInviteLink()" title="Copy invite link — anyone with a seat here can use it to get back in">Room: <span id="hud-room"></span> <span class="room-badge-link">🔗</span></div>
     <div class="turn-indicator" id="turn-indicator">Waiting…</div>
     <div class="top-bar-right">
       <div class="phase-badge">Phase: <span id="hud-phase">1</span></div>
@@ -337,6 +355,14 @@
       </div>
     </div>
     <div id="meld-area" class="meld-area"></div>
+
+    <!-- Seasonal polaroid — a photo taped to the corner of the table during a
+         photo season. ui.js fills it in and swaps the picture each round; CSS
+         keeps it hidden unless a season that defines one is running. -->
+    <figure id="season-polaroid" class="season-polaroid" aria-hidden="true">
+      <img id="season-polaroid-img" src="" alt="" />
+      <figcaption id="season-polaroid-cap"></figcaption>
+    </figure>
   </div>
 
   <!-- Player hand -->
@@ -382,7 +408,7 @@
   <div id="confetti-container" class="confetti-container"></div>
   <div class="season-fw season-fw-win" aria-hidden="true"></div>
   <div class="end-inner">
-    <div class="season-banner" aria-hidden="true"><span>🎆 4th of July Edition 🎆</span></div>
+    <div class="season-banner" aria-hidden="true"><span>Seasonal Edition</span></div>
     <div class="end-crown-wrap"><span class="end-crown">👑</span></div>
     <img id="end-tippy-img" src="images/tippy/tippy-happy.jpeg" class="tippy-win-photo" alt="Tippy celebrating" />
     <h2 id="end-title">Game Over!</h2>
@@ -420,10 +446,24 @@
   </div>
 </div>
 
+<!-- ══════════════════ BIRTHDAY TAKEOVER ══════════════════ -->
+<!-- Shown on round 1 when the guest of honour of an active birthday season
+     is at the table (see maybeBirthdayTakeover in ui.js). -->
+<div id="birthday-overlay" class="birthday-overlay" onclick="dismissBirthdayTakeover()">
+  <div class="birthday-fx" id="birthday-fx" aria-hidden="true"></div>
+  <div class="birthday-card">
+    <img id="birthday-photo" class="birthday-photo" src="images/tippy/tippy-happy.jpeg" alt="" />
+    <div class="birthday-title" id="birthday-title">HAPPY BIRTHDAY!</div>
+    <div class="birthday-sub" id="birthday-sub"></div>
+    <div class="birthday-tap">tap anywhere to close</div>
+  </div>
+</div>
+
 <!-- ══════════════════ ROUND END ══════════════════ -->
 <div id="screen-round-end" class="screen">
   <div class="season-fw season-fw-win" aria-hidden="true"></div>
   <div class="round-end-inner">
+    <div class="season-banner" aria-hidden="true"><span>Seasonal Edition</span></div>
     <div class="round-end-title">Round Over!</div>
     <p id="round-end-goout" class="round-end-goout"></p>
     <div>
@@ -456,6 +496,7 @@
     <!-- Reaction picker — floats over a message when the user opens it -->
     <div id="chat-react-picker" class="chat-react-picker" role="menu" aria-label="Add reaction">
       <button type="button" onclick="chatPickerSelect('👍')" title="Thumbs up">👍</button>
+      <button type="button" onclick="chatPickerSelect('👎')" title="Thumbs down">👎</button>
       <button type="button" onclick="chatPickerSelect('❤️')" title="Heart">❤️</button>
       <button type="button" onclick="chatPickerSelect('😂')" title="Laugh">😂</button>
       <button type="button" onclick="chatPickerSelect('🎉')" title="Party">🎉</button>
